@@ -42,3 +42,7 @@ yarn-error.*
 
 # Environment variables
 .env
+
+# Firebase Admin SDK service account key — DO NOT COMMIT
+.secrets/
+*.serviceaccount.json
