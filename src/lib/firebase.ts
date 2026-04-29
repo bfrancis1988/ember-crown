@@ -1,9 +1,9 @@
 // src/lib/firebase.ts
 // Firebase initialization with AsyncStorage-backed auth persistence for React Native.
-
 import { initializeApp, getApps, getApp } from 'firebase/app';
 // @ts-ignore - getReactNativePersistence exists at runtime but isn't always in Firebase's TS types
 import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
@@ -29,4 +29,6 @@ try {
   auth = getAuth(app);
 }
 
-export { app, auth };
+const db = getFirestore(app);
+
+export { app, auth, db };

@@ -1,4 +1,4 @@
-// src/screens/LoginScreen.tsx
+// app/(auth)/login.tsx
 // Email/password authentication UI. Google button is a placeholder until
 // Step 7 of the planning doc (requires a dev build, not Expo Go).
 
@@ -13,10 +13,12 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { useAuth } from '../contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import { useAuth } from '../../src/contexts/AuthContext';
 
 export default function LoginScreen() {
   const { signInWithEmail, signUpWithEmail } = useAuth();
+  const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,6 +32,7 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     try {
       await signInWithEmail(email.trim(), password);
+      router.replace('/home');
     } catch (err: any) {
       Alert.alert('Sign in failed', err?.message ?? 'Unknown error');
     } finally {
@@ -45,6 +48,7 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     try {
       await signUpWithEmail(email.trim(), password);
+      router.replace('/home');
     } catch (err: any) {
       Alert.alert('Sign up failed', err?.message ?? 'Unknown error');
     } finally {
