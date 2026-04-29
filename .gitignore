@@ -46,3 +46,6 @@ yarn-error.*
 # Firebase Admin SDK service account key — DO NOT COMMIT
 .secrets/
 *.serviceaccount.json
+
+# Local CSV backups
+*.csv.bak
