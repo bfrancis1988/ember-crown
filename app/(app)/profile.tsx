@@ -1,6 +1,6 @@
 // app/(app)/profile.tsx
-// Live profile screen. Subscribes to Firestore via onSnapshot — edits made
-// here OR from the Firebase Console will update the UI in real time.
+// Live profile screen. Subscribes to player_profiles/{uid} via usePlayerProfile.
+// Edits made here OR from the Firebase Console update the UI in real time.
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -13,77 +13,54 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import {
-  doc,
-  onSnapshot,
-  setDoc,
-  updateDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { useAuth } from '../../src/contexts/AuthContext';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../src/lib/firebase';
-
-type PlayerProfile = {
-  player_id: string;
-  username: string;
-  onboarding_step: number;
-  // created_at / updated_at exist in Firestore as Timestamps but we don't
-  // render them, so we don't need to type them here.
-};
+import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
+import type { CommanderEntry } from '../../src/types/commander';
 
 export default function ProfileScreen() {
-  const { user } = useAuth();
   const router = useRouter();
+  const { profile, isLoading, updateProfile } = usePlayerProfile();
 
-  const [profile, setProfile] = useState<PlayerProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [usernameDraft, setUsernameDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [commanderName, setCommanderName] = useState<string | null>(null);
 
+  // Seed the input with the current username on first load only — don't clobber
+  // what the user is typing on subsequent snapshots.
   useEffect(() => {
-    if (!user) return;
+    if (profile && usernameDraft === '') {
+      setUsernameDraft(profile.username);
+    }
+  }, [profile, usernameDraft]);
 
-    const profileRef = doc(db, 'player_profiles', user.uid);
-
-    const unsubscribe = onSnapshot(
-      profileRef,
-      async (snapshot) => {
-        if (!snapshot.exists()) {
-          // First-ever read for this user. Create the default doc.
-          // The setDoc itself triggers another snapshot event, so we don't
-          // need to setProfile here — let the next callback do it.
-          try {
-            await setDoc(profileRef, {
-              player_id: user.uid,
-              username: 'Guest_Commander',
-              onboarding_step: 0,
-              created_at: serverTimestamp(),
-              updated_at: serverTimestamp(),
-            });
-          } catch (err: any) {
-            Alert.alert('Profile init failed', err?.message ?? 'Unknown error');
-            setIsLoading(false);
-          }
-          return;
+  // Resolve commander_name from commander_library on every selected_commander change.
+  useEffect(() => {
+    const id = profile?.selected_commander;
+    if (!id) {
+      setCommanderName(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'commander_library', id));
+        if (cancelled) return;
+        if (snap.exists()) {
+          setCommanderName((snap.data() as CommanderEntry).name);
+        } else {
+          setCommanderName(id);
         }
-
-        const data = snapshot.data() as PlayerProfile;
-        setProfile(data);
-        // Only seed the input on first load — don't clobber what the user is typing.
-        setUsernameDraft((current) => (current === '' ? data.username : current));
-        setIsLoading(false);
-      },
-      (err) => {
-        Alert.alert('Profile subscription failed', err.message);
-        setIsLoading(false);
+      } catch {
+        if (!cancelled) setCommanderName(id);
       }
-    );
-
-    return unsubscribe;
-  }, [user]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.selected_commander]);
 
   const handleSave = async () => {
-    if (!user) return;
     const trimmed = usernameDraft.trim();
     if (!trimmed) {
       Alert.alert('Username required', 'Please enter a username before saving.');
@@ -96,11 +73,7 @@ export default function ProfileScreen() {
 
     setIsSaving(true);
     try {
-      await updateDoc(doc(db, 'player_profiles', user.uid), {
-        username: trimmed,
-        updated_at: serverTimestamp(),
-      });
-      // The onSnapshot callback will update local state automatically.
+      await updateProfile({ username: trimmed });
     } catch (err: any) {
       Alert.alert('Save failed', err?.message ?? 'Unknown error');
     } finally {
@@ -129,6 +102,16 @@ export default function ProfileScreen() {
 
       <Text style={styles.label}>Onboarding step</Text>
       <Text style={styles.metaText}>{profile.onboarding_step}</Text>
+
+      <Text style={styles.label}>Faction</Text>
+      <Text style={styles.metaText}>{profile.active_faction ?? 'None chosen'}</Text>
+
+      <Text style={styles.label}>Commander</Text>
+      <Text style={styles.metaText}>
+        {profile.selected_commander
+          ? commanderName ?? profile.selected_commander
+          : 'None chosen'}
+      </Text>
 
       <View style={styles.editBlock}>
         <Text style={styles.label}>Edit username</Text>
