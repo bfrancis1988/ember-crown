@@ -184,9 +184,28 @@ function buildCardDoc(row: Record<string, string>) {
   }
 
   if (cardType === 'Spell') {
+    // Normalize spell class. CSV is now Curse/Cleanse, but accept legacy
+    // 'Debuff' too in case an older CSV gets merged in later.
+    let spellKlass: 'Curse' | 'Cleanse';
+    if (klass === 'Debuff' || klass === 'Curse') spellKlass = 'Curse';
+    else if (klass === 'Cleanse') spellKlass = 'Cleanse';
+    else throw new Error(`Unknown spell Class "${klass}" for ${cardId}`);
+
+    if (spellKlass === 'Curse') {
+      return {
+        ...base,
+        klass: spellKlass,
+        target_side: 'enemy',
+        lane_affinity: rewriteLane(row.Optimal_Lane),
+      };
+    }
+
+    // Cleanse: no card-level lane affinity. Accept Optimal_Lane='Any' without
+    // calling rewriteLane (this was the bug that dropped 12 cleanses in Phase 1).
     return {
       ...base,
-      target_lane: rewriteLane(row.Optimal_Lane),
+      klass: spellKlass,
+      target_side: 'self',
     };
   }
 
@@ -214,7 +233,7 @@ async function writeBatch(
   docs: { id: string; data: Record<string, unknown> }[]
 ) {
   // Firestore batches max out at 500 ops. Our datasets are well under that
-  // (94 + 18 = 112), so a single batch is fine.
+  // (88 + 18 = 106), so a single batch is fine.
   const batch = db.batch();
   for (const { id, data } of docs) {
     batch.set(db.collection(collection).doc(id), data);
