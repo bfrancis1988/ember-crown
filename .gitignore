@@ -49,3 +49,5 @@ yarn-error.*
 
 # Local CSV backups
 *.csv.bak
+# Claude Code local state
+.claude/
