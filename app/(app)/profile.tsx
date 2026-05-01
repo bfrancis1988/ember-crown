@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../src/lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../../src/lib/firebase';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
 import { usePlayerWallet } from '../../src/hooks/usePlayerWallet';
 import type { CommanderEntry } from '../../src/types/commander';
@@ -83,6 +84,17 @@ export default function ProfileScreen() {
     }
   };
 
+  // TODO: Remove ping test button after Phase 5 Deliverable 2 lands.
+  const handleTestPing = async () => {
+    try {
+      const ping = httpsCallable(functions, 'ping');
+      const result = await ping({});
+      Alert.alert('Pong', JSON.stringify(result.data, null, 2));
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Unknown error');
+    }
+  };
+
   if (isLoading || !profile) {
     return (
       <View style={styles.containerCentered}>
@@ -142,6 +154,11 @@ export default function ProfileScreen() {
           <Text style={styles.buttonText}>{isSaving ? 'Saving…' : 'Save'}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* TODO: Remove ping test button after Phase 5 Deliverable 2 lands. */}
+      <TouchableOpacity style={styles.testButton} onPress={handleTestPing}>
+        <Text style={styles.buttonText}>🧪 Test Cloud Function</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -213,6 +230,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#444',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  testButton: {
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#7a3f00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 24,
   },
   buttonDisabled: {
     opacity: 0.5,

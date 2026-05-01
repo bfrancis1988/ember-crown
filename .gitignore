@@ -51,3 +51,7 @@ yarn-error.*
 *.csv.bak
 # Claude Code local state
 .claude/
+
+# Cloud Functions build output
+functions/lib/
+functions/node_modules/

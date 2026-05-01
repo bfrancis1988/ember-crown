@@ -4,6 +4,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 // @ts-ignore - getReactNativePersistence exists at runtime but isn't always in Firebase's TS types
 import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
@@ -30,5 +31,6 @@ try {
 }
 
 const db = getFirestore(app);
+const functions = getFunctions(app);
 
-export { app, auth, db };
+export { app, auth, db, functions };

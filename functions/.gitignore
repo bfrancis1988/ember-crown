@@ -1,0 +1,12 @@
+# Compiled JavaScript files from TypeScript
+lib/**/*.js
+lib/**/*.js.map
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Node
+node_modules/
+
+# Local-only files
+*.local
