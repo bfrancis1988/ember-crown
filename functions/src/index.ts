@@ -15,3 +15,6 @@ export const ping = onCall((request) => {
     timestamp: Date.now(),
   };
 });
+
+export { initializeNewMatch } from './match/initializeNewMatch';
+export { onMatchTurnChange } from './match/onMatchTurnChange';

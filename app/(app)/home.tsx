@@ -17,8 +17,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { db } from '../../src/lib/firebase';
+import { db, functions } from '../../src/lib/firebase';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
 import { completeOnboarding } from '../../src/lib/completeOnboarding';
 import type { FactionId } from '../../src/lib/factions';
@@ -31,6 +32,7 @@ export default function HomeScreen() {
 
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [commanderName, setCommanderName] = useState<string | null>(null);
+  const [isStartingMatch, setIsStartingMatch] = useState(false);
 
   // completeOnboarding state. We track it locally because the function is
   // imperative; the profile-step transition tells us when it has finished.
@@ -93,6 +95,32 @@ export default function HomeScreen() {
   const handleRetry = () => {
     setCompletionError(null);
     setCompletionAttempt((n) => n + 1);
+  };
+
+  // TODO Phase 5 D9: remove this debug button when real Play Match UI lands.
+  const testInitializeMatch = async () => {
+    setIsStartingMatch(true);
+    try {
+      const fn = httpsCallable(functions, 'initializeNewMatch');
+      const result = await fn({});
+      const data = result.data as {
+        match_id: string;
+        first_turn: 'player_a' | 'player_b';
+        player_a_commander_id: string;
+        player_b_commander_id: string;
+      };
+      Alert.alert(
+        'Match Initialized',
+        `match_id: ${data.match_id}\n` +
+          `first_turn: ${data.first_turn}\n` +
+          `your commander: ${data.player_a_commander_id}\n` +
+          `bot commander: ${data.player_b_commander_id}`,
+      );
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Unknown error');
+    } finally {
+      setIsStartingMatch(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -197,6 +225,19 @@ export default function HomeScreen() {
             {step >= 4 && (
               <Text style={styles.comingSoon}>Guild Hall and battle coming soon.</Text>
             )}
+            {step >= 4 && (
+              <TouchableOpacity
+                style={[styles.testButton, isStartingMatch && styles.disabled]}
+                onPress={testInitializeMatch}
+                disabled={isStartingMatch}
+              >
+                {isStartingMatch ? (
+                  <ActivityIndicator color="#bbb" />
+                ) : (
+                  <Text style={styles.testButtonText}>🧪 Test Initialize Match</Text>
+                )}
+              </TouchableOpacity>
+            )}
           </>
         )}
       </View>
@@ -280,6 +321,22 @@ const styles = StyleSheet.create({
   },
   spinner: {
     marginBottom: 24,
+  },
+  testButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#444',
+    backgroundColor: '#1a1a1a',
+    minWidth: 220,
+    alignItems: 'center',
+  },
+  testButtonText: {
+    color: '#bbb',
+    fontSize: 13,
+    fontWeight: '500',
   },
   profileLink: {
     paddingVertical: 16,
