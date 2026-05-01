@@ -18,3 +18,5 @@ export const ping = onCall((request) => {
 
 export { initializeNewMatch } from './match/initializeNewMatch';
 export { onMatchTurnChange } from './match/onMatchTurnChange';
+export { onBoardStateChange } from './match/onBoardStateChange';
+export { onMatchDebuffChange } from './match/onMatchDebuffChange';
