@@ -3,24 +3,40 @@
 // profile.onboarding_step:
 //   0, 1 → faction picker CTA
 //   2    → commander picker CTA
-//   3, 4 → welcome-back + faction/commander summary (no CTA in Phase 2)
+//   3    → loading screen while completeOnboarding runs (auto-fires once)
+//   4+   → welcome-back + faction/commander summary
 
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { db } from '../../src/lib/firebase';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
+import { completeOnboarding } from '../../src/lib/completeOnboarding';
+import type { FactionId } from '../../src/lib/factions';
 import type { CommanderEntry } from '../../src/types/commander';
 
 export default function HomeScreen() {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const { profile } = usePlayerProfile();
   const router = useRouter();
 
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [commanderName, setCommanderName] = useState<string | null>(null);
+
+  // completeOnboarding state. We track it locally because the function is
+  // imperative; the profile-step transition tells us when it has finished.
+  const [completionError, setCompletionError] = useState<string | null>(null);
+  const [completionAttempt, setCompletionAttempt] = useState(0);
+  const isCompletingRef = useRef(false);
 
   // Resolve commander name once whenever selected_commander changes.
   // The profile snapshot subscription means that if Firebase Console edits
@@ -50,6 +66,35 @@ export default function HomeScreen() {
     };
   }, [profile?.selected_commander]);
 
+  // Auto-fire completeOnboarding when the player just picked their commander.
+  // Guarded by isCompletingRef so we don't double-fire on re-renders, and by
+  // completionError so a failure doesn't busy-loop. completeOnboarding is
+  // idempotent (wallet existence check), so a re-run after retry is safe.
+  useEffect(() => {
+    if (!user) return;
+    if (!profile) return;
+    if (profile.onboarding_step !== 3) return;
+    if (!profile.active_faction) return;
+    if (isCompletingRef.current) return;
+    if (completionError) return;
+
+    isCompletingRef.current = true;
+    completeOnboarding(user.uid, profile.active_faction as FactionId)
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        console.warn('completeOnboarding failed', msg);
+        setCompletionError(msg);
+      })
+      .finally(() => {
+        isCompletingRef.current = false;
+      });
+  }, [user, profile, completionError, completionAttempt]);
+
+  const handleRetry = () => {
+    setCompletionError(null);
+    setCompletionAttempt((n) => n + 1);
+  };
+
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
@@ -70,7 +115,7 @@ export default function HomeScreen() {
   };
 
   const view: { title: string; subtitle: string; primaryCta: PrimaryCta | null } =
-    step >= 3
+    step >= 4
       ? {
           title: `Welcome back, ${username}`,
           subtitle: `${activeFaction ?? '...'} — ${
@@ -98,6 +143,11 @@ export default function HomeScreen() {
 
   const { title, subtitle, primaryCta } = view;
 
+  // Step-3 branch: provisioning is running (or just failed). Render its own
+  // view instead of the normal CTA layout.
+  const isProvisioning = step === 3 && !completionError;
+  const showProvisioningError = step === 3 && completionError !== null;
+
   return (
     <View style={styles.container}>
       <TouchableOpacity
@@ -111,20 +161,43 @@ export default function HomeScreen() {
 
       <View style={styles.center}>
         <Text style={styles.brand}>Ember Crown</Text>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
 
-        {primaryCta && (
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => router.push(primaryCta.href)}
-          >
-            <Text style={styles.primaryButtonText}>{primaryCta.label}</Text>
-          </TouchableOpacity>
-        )}
-
-        {step >= 3 && (
-          <Text style={styles.comingSoon}>Guild Hall and battle coming soon.</Text>
+        {isProvisioning ? (
+          <>
+            <ActivityIndicator
+              color="#d4a04a"
+              size="large"
+              style={styles.spinner}
+            />
+            <Text style={styles.title}>Forging your destiny…</Text>
+            <Text style={styles.subtitle}>
+              Assembling your starter forces and royal treasury.
+            </Text>
+          </>
+        ) : showProvisioningError ? (
+          <>
+            <Text style={styles.title}>Something went wrong</Text>
+            <Text style={styles.subtitle}>{completionError}</Text>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleRetry}>
+              <Text style={styles.primaryButtonText}>Try again</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.subtitle}>{subtitle}</Text>
+            {primaryCta && (
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() => router.push(primaryCta.href)}
+              >
+                <Text style={styles.primaryButtonText}>{primaryCta.label}</Text>
+              </TouchableOpacity>
+            )}
+            {step >= 4 && (
+              <Text style={styles.comingSoon}>Guild Hall and battle coming soon.</Text>
+            )}
+          </>
         )}
       </View>
 
@@ -204,6 +277,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     marginTop: 16,
+  },
+  spinner: {
+    marginBottom: 24,
   },
   profileLink: {
     paddingVertical: 16,

@@ -51,6 +51,8 @@ export function usePlayerProfile(): UsePlayerProfileResult {
               onboarding_step: 0,
               active_faction: null,
               selected_commander: null,
+              unlocked_factions: ['Vanguard Kingdoms'],
+              tutorial_reward_claimed: false,
               created_at: serverTimestamp(),
               updated_at: serverTimestamp(),
             });

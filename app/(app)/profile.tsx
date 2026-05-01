@@ -16,11 +16,13 @@ import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../src/lib/firebase';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
+import { usePlayerWallet } from '../../src/hooks/usePlayerWallet';
 import type { CommanderEntry } from '../../src/types/commander';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { profile, isLoading, updateProfile } = usePlayerProfile();
+  const { wallet } = usePlayerWallet();
 
   const [usernameDraft, setUsernameDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -113,6 +115,13 @@ export default function ProfileScreen() {
           : 'None chosen'}
       </Text>
 
+      <Text style={styles.label}>Wallet</Text>
+      <View style={styles.walletRow}>
+        <Text style={styles.walletItem}>Coins: {wallet ? wallet.coins : '—'}</Text>
+        <Text style={styles.walletItem}>Shards: {wallet ? wallet.shards : '—'}</Text>
+        <Text style={styles.walletItem}>Keys: {wallet ? wallet.keys : '—'}</Text>
+      </View>
+
       <View style={styles.editBlock}>
         <Text style={styles.label}>Edit username</Text>
         <TextInput
@@ -171,6 +180,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   metaText: {
+    color: '#ccc',
+    fontSize: 14,
+    fontFamily: 'monospace',
+  },
+  walletRow: {
+    flexDirection: 'row',
+    gap: 16,
+    flexWrap: 'wrap',
+  },
+  walletItem: {
     color: '#ccc',
     fontSize: 14,
     fontFamily: 'monospace',

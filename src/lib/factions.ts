@@ -90,12 +90,17 @@ export const FACTIONS: FactionMeta[] = [
 
 export const STARTER_FACTION: FactionId = 'Vanguard Kingdoms';
 
-// Phase 2: only the starter faction is unlocked.
-// TODO: Phase 3 extends this with a Player_Profile.unlocked_factions inventory check.
-// TODO: Phase 7 ties unlock progression to campaign completion.
+// TODO: Phase 7 ties unlock progression to campaign completion (granting new
+// entries into Player_Profile.unlocked_factions).
 export function isFactionUnlocked(
   factionId: FactionId,
-  _profile: PlayerProfile | null
+  profile: PlayerProfile | null
 ): boolean {
-  return factionId === STARTER_FACTION;
+  if (!profile) return false;
+  // Defensive fallback for profiles created before unlocked_factions existed
+  // (any Phase 0–2 doc that hasn't been re-onboarded). Treat them as starter-only.
+  if (!profile.unlocked_factions || profile.unlocked_factions.length === 0) {
+    return factionId === STARTER_FACTION;
+  }
+  return profile.unlocked_factions.includes(factionId);
 }

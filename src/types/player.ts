@@ -9,6 +9,8 @@ export type PlayerProfile = {
   onboarding_step: 0 | 1 | 2 | 3 | 4;
   active_faction: string | null;
   selected_commander: string | null;
+  unlocked_factions: string[];
+  tutorial_reward_claimed: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
