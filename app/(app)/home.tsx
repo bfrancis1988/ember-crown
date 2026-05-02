@@ -106,6 +106,7 @@ export default function HomeScreen() {
   };
 
   // TODO Phase 5 D9: remove this debug button when real Play Match UI lands.
+  // After init, auto-navigate into the match board (D8).
   const testInitializeMatch = async () => {
     setIsStartingMatch(true);
     try {
@@ -117,13 +118,7 @@ export default function HomeScreen() {
         player_a_commander_id: string;
         player_b_commander_id: string;
       };
-      Alert.alert(
-        'Match Initialized',
-        `match_id: ${data.match_id}\n` +
-          `first_turn: ${data.first_turn}\n` +
-          `your commander: ${data.player_a_commander_id}\n` +
-          `bot commander: ${data.player_b_commander_id}`,
-      );
+      router.push(`/match/${data.match_id}`);
     } catch (err: any) {
       Alert.alert('Error', err?.message ?? 'Unknown error');
     } finally {
