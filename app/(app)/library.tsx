@@ -1,31 +1,52 @@
 // app/(app)/library.tsx
 // Phase 4.5: Card Library browser. Read-only view of all 88 cards across all
 // 6 factions, with locked/owned overlays and a tap-to-detail modal.
+// Phase 6: gains a craft mode (?mode=craft) that overlays dust cost on every
+// card and routes the detail modal's CTA through the craftCard Cloud Function.
 
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../src/lib/firebase';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
 import { usePlayerInventory } from '../../src/hooks/usePlayerInventory';
 import { useCardLibrary } from '../../src/hooks/useCardLibrary';
+import { useWalletAndCanSummon } from '../../src/hooks/useWalletAndCanSummon';
 import { LibraryFactionTabs } from '../../src/components/library/LibraryFactionTabs';
 import { LibraryCardGrid } from '../../src/components/library/LibraryCardGrid';
 import { CardDetailModal } from '../../src/components/library/CardDetailModal';
 import { FACTIONS, STARTER_FACTION, type FactionId } from '../../src/lib/factions';
 import type { CardLibraryEntry } from '../../src/types/card';
 
+type CraftInput = { card_id: string };
+type CraftResult = {
+  success: true;
+  card_id: string;
+  rarity: string;
+  dust_spent: number;
+  quantity_owned_after: number;
+};
+
 export default function CardLibraryScreen() {
   const router = useRouter();
+  const { mode: rawMode } = useLocalSearchParams<{ mode?: string }>();
+  const mode: 'browse' | 'craft' = rawMode === 'craft' ? 'craft' : 'browse';
   const { profile, isLoading: profileLoading } = usePlayerProfile();
   const { inventory } = usePlayerInventory();
+  const { wallet } = useWalletAndCanSummon();
   const [libraryKey, setLibraryKey] = useState(0);
+  const [isCrafting, setIsCrafting] = useState(false);
+
+  const dustAvailable = wallet?.dust ?? 0;
 
   // Defensive fallback: a profile with no unlocked_factions array is treated
   // as starter-only (matches isFactionUnlocked in lib/factions.ts).
@@ -64,6 +85,22 @@ export default function CardLibraryScreen() {
     ? !unlockedFactions.includes(selectedCard.faction as FactionId)
     : false;
 
+  async function handleCraft() {
+    if (!selectedCard || isCrafting) return;
+    setIsCrafting(true);
+    try {
+      const fn = httpsCallable<CraftInput, CraftResult>(functions, 'craftCard');
+      await fn({ card_id: selectedCard.card_id });
+      // The wallet/inventory live subscriptions update on their own; the
+      // modal stays open with refreshed counts so the player can see the
+      // result. Button will grey out automatically when atMax.
+    } catch (err: any) {
+      Alert.alert('Craft failed', err?.message ?? 'Unknown error');
+    } finally {
+      setIsCrafting(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.topBar}>
@@ -74,8 +111,14 @@ export default function CardLibraryScreen() {
         >
           <Text style={styles.backText}>←</Text>
         </Pressable>
-        <Text style={styles.title}>Card Library</Text>
-        <View style={styles.topBarRightSpacer} />
+        <Text style={styles.title}>{mode === 'craft' ? 'Craft' : 'Card Library'}</Text>
+        {mode === 'craft' ? (
+          <View style={styles.dustPill}>
+            <Text style={styles.dustPillText}>✨ {dustAvailable}</Text>
+          </View>
+        ) : (
+          <View style={styles.topBarRightSpacer} />
+        )}
       </View>
 
       <LibraryFactionTabs
@@ -91,6 +134,8 @@ export default function CardLibraryScreen() {
         inventory={inventory}
         onTapCard={setSelectedCard}
         onRetry={() => setLibraryKey((k) => k + 1)}
+        mode={mode}
+        dustAvailable={dustAvailable}
       />
 
       <CardDetailModal
@@ -99,6 +144,10 @@ export default function CardLibraryScreen() {
         quantityOwned={detailQuantityOwned}
         isFactionLocked={detailFactionLocked}
         onClose={() => setSelectedCard(null)}
+        mode={mode}
+        dustAvailable={dustAvailable}
+        onCraft={handleCraft}
+        isCrafting={isCrafting}
       />
     </SafeAreaView>
   );
@@ -110,6 +159,8 @@ type BodyProps = {
   inventory: ReturnType<typeof usePlayerInventory>['inventory'];
   onTapCard: (card: CardLibraryEntry) => void;
   onRetry: () => void;
+  mode: 'browse' | 'craft';
+  dustAvailable: number;
 };
 
 // Inner body so the key prop can remount the useCardLibrary hook on retry.
@@ -119,6 +170,8 @@ function LibraryBody({
   inventory,
   onTapCard,
   onRetry,
+  mode,
+  dustAvailable,
 }: BodyProps) {
   const { cards, isLoading, error } = useCardLibrary();
 
@@ -150,6 +203,8 @@ function LibraryBody({
         inventory={inventory}
         isFactionLocked={isFactionLocked}
         onTapCard={onTapCard}
+        mode={mode}
+        dustAvailable={dustAvailable}
       />
     </View>
   );
@@ -175,6 +230,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   topBarRightSpacer: { width: 40 },
+  dustPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#d4a04a',
+  },
+  dustPillText: { color: '#d4a04a', fontSize: 13, fontWeight: '700' },
   gridWrap: { flex: 1 },
   fullCenter: {
     flex: 1,

@@ -13,3 +13,5 @@ export { onBothPlayersPassed } from './match/onBothPlayersPassed';
 export { claimMatchRewards } from './match/claimMatchRewards';
 export { cleanupStaleMatches } from './match/cleanupStaleMatches';
 export { completeOnboardingFn } from './onboarding/completeOnboardingFn';
+export { summonCard } from './economy/summonCard';
+export { craftCard } from './economy/craftCard';

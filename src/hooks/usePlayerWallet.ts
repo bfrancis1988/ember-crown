@@ -38,7 +38,10 @@ export function usePlayerWallet(): UsePlayerWalletResult {
           setIsLoading(false);
           return;
         }
-        setWallet(snapshot.data() as PlayerWallet);
+        const raw = snapshot.data() as PlayerWallet;
+        // Defensive backfill: existing wallets predate the dust field. The
+        // doc itself isn't rewritten until the next mutation (summon/craft).
+        setWallet({ ...raw, dust: raw.dust ?? 0 });
         setIsLoading(false);
       },
       (err) => {

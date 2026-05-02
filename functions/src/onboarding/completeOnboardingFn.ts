@@ -111,6 +111,7 @@ export const completeOnboardingFn = onCall<CompleteOnboardingInput, Promise<Comp
         coins: 0,
         shards: 0,
         keys: 0,
+        dust: 0,
         created_at: FieldValue.serverTimestamp(),
         updated_at: FieldValue.serverTimestamp(),
       });

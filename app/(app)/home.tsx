@@ -172,6 +172,24 @@ export default function HomeScreen() {
                     Manage your deck
                   </Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.guildHallButton}
+                  onPress={() => router.push('/summon')}
+                >
+                  <Text style={styles.guildHallButtonText}>✨ Summon</Text>
+                  <Text style={styles.guildHallButtonSubtitle}>
+                    Pull cards from banners
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.guildHallButton}
+                  onPress={() => router.push('/library?mode=craft')}
+                >
+                  <Text style={styles.guildHallButtonText}>⚒ Craft</Text>
+                  <Text style={styles.guildHallButtonSubtitle}>
+                    Spend dust on specific cards
+                  </Text>
+                </TouchableOpacity>
               </>
             )}
           </>

@@ -9,6 +9,7 @@ export type PlayerWallet = {
   coins: number;
   shards: number;
   keys: number;
+  dust: number;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

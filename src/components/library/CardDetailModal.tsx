@@ -4,6 +4,7 @@
 
 import React from 'react';
 import {
+  ActivityIndicator,
   Modal,
   View,
   Text,
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CardLibraryEntry, Rarity } from '../../types/card';
+import { CRAFT_DUST_COSTS, MAX_COPIES_PER_CARD } from '../../lib/banners';
 
 type Props = {
   card: CardLibraryEntry | null;
@@ -21,6 +23,10 @@ type Props = {
   quantityOwned: number;
   isFactionLocked: boolean;
   onClose: () => void;
+  mode?: 'browse' | 'craft';
+  dustAvailable?: number;
+  onCraft?: () => void;
+  isCrafting?: boolean;
 };
 
 const RARITY_BORDER: Record<Rarity, string> = {
@@ -39,12 +45,27 @@ export function CardDetailModal({
   quantityOwned,
   isFactionLocked,
   onClose,
+  mode = 'browse',
+  dustAvailable = 0,
+  onCraft,
+  isCrafting = false,
 }: Props) {
   const visible = card !== null;
   const screenWidth = Dimensions.get('window').width;
   const cardWidth = screenWidth * 0.7;
 
-  const isLockedDisplay = isFactionLocked || quantityOwned === 0;
+  const isCraftMode = mode === 'craft';
+  // In craft mode the visual is never "locked" by ownership-zero — every
+  // card is a candidate. Faction lock still applies.
+  const isLockedDisplay = isCraftMode
+    ? isFactionLocked
+    : isFactionLocked || quantityOwned === 0;
+
+  const dustCost = card ? CRAFT_DUST_COSTS[card.rarity] : 0;
+  const atMax = quantityOwned >= MAX_COPIES_PER_CARD;
+  const canAffordCraft = dustAvailable >= dustCost;
+  const craftEnabled =
+    isCraftMode && !isFactionLocked && !atMax && canAffordCraft && !isCrafting;
 
   return (
     <Modal
@@ -143,6 +164,52 @@ export function CardDetailModal({
                     {card.faction} — {card.rarity}.
                   </Text>
                 </View>
+
+                {isCraftMode && (
+                  <View style={styles.craftBlock}>
+                    {isFactionLocked ? (
+                      <Text style={styles.craftLocked}>
+                        🔒 Unlock {card.faction} to craft this card.
+                      </Text>
+                    ) : atMax ? (
+                      <View
+                        style={[styles.craftButton, styles.craftButtonDisabled]}
+                      >
+                        <Text style={styles.craftButtonTextDisabled}>
+                          Already owned ({MAX_COPIES_PER_CARD}/{MAX_COPIES_PER_CARD})
+                        </Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[
+                          styles.craftButton,
+                          !craftEnabled && styles.craftButtonDisabled,
+                        ]}
+                        onPress={craftEnabled ? onCraft : undefined}
+                        disabled={!craftEnabled}
+                      >
+                        {isCrafting ? (
+                          <ActivityIndicator color="#111" />
+                        ) : (
+                          <Text
+                            style={
+                              craftEnabled
+                                ? styles.craftButtonText
+                                : styles.craftButtonTextDisabled
+                            }
+                          >
+                            Craft (✨ {dustCost})
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                    {!atMax && !isFactionLocked && !canAffordCraft && (
+                      <Text style={styles.craftHint}>
+                        Need {dustCost - dustAvailable} more dust.
+                      </Text>
+                    )}
+                  </View>
+                )}
               </View>
             </ScrollView>
           </>
@@ -255,5 +322,28 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 13,
     fontStyle: 'italic',
+  },
+  craftBlock: { marginTop: 24 },
+  craftButton: {
+    height: 50,
+    borderRadius: 10,
+    backgroundColor: '#d4a04a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  craftButtonDisabled: { backgroundColor: '#2a2a2a' },
+  craftButtonText: { color: '#111', fontSize: 16, fontWeight: '700' },
+  craftButtonTextDisabled: { color: '#888', fontSize: 14, fontWeight: '600' },
+  craftLocked: {
+    color: '#999',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 14,
+  },
+  craftHint: {
+    color: '#888',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });

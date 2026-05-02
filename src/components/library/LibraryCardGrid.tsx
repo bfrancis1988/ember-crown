@@ -15,6 +15,7 @@ import { MiniCard } from '../MiniCard';
 import { FACTIONS, type FactionId } from '../../lib/factions';
 import type { CardLibraryEntry, Rarity } from '../../types/card';
 import type { InventoryCard } from '../../types/inventory';
+import { CRAFT_DUST_COSTS, MAX_COPIES_PER_CARD } from '../../lib/banners';
 
 type Props = {
   factionId: FactionId;
@@ -22,6 +23,8 @@ type Props = {
   inventory: InventoryCard[];
   isFactionLocked: boolean;
   onTapCard: (card: CardLibraryEntry) => void;
+  mode?: 'browse' | 'craft';
+  dustAvailable?: number;
 };
 
 const COLUMNS = 3;
@@ -53,6 +56,8 @@ export function LibraryCardGrid({
   inventory,
   isFactionLocked,
   onTapCard,
+  mode = 'browse',
+  dustAvailable = 0,
 }: Props) {
   const factionMeta = FACTIONS.find((f) => f.id === factionId);
   const factionColor = factionMeta?.color ?? '#888';
@@ -89,7 +94,20 @@ export function LibraryCardGrid({
       columnWrapperStyle={styles.row}
       renderItem={({ item: card }) => {
         const quantityOwned = ownedMap.get(card.card_id) ?? 0;
-        const isLocked = isFactionLocked || quantityOwned === 0;
+        const dustCost = CRAFT_DUST_COSTS[card.rarity];
+        const atMax = quantityOwned >= MAX_COPIES_PER_CARD;
+        const canAffordCraft = dustAvailable >= dustCost;
+
+        const isCraftMode = mode === 'craft';
+        // Browse mode: lock if faction locked OR card not owned.
+        // Craft mode: lock visual only when faction locked. Affordability
+        // and max-copy are signaled with their own overlays.
+        const browseLocked = !isCraftMode && (isFactionLocked || quantityOwned === 0);
+        const craftFactionLocked = isCraftMode && isFactionLocked;
+        const dimmed =
+          browseLocked ||
+          craftFactionLocked ||
+          (isCraftMode && (atMax || !canAffordCraft));
 
         return (
           <TouchableOpacity
@@ -97,7 +115,7 @@ export function LibraryCardGrid({
             onPress={() => onTapCard(card)}
             activeOpacity={0.7}
           >
-            <View style={isLocked ? styles.dim : undefined}>
+            <View style={dimmed ? styles.dim : undefined}>
               <MiniCard card={card} factionColor={factionColor} />
             </View>
 
@@ -107,7 +125,37 @@ export function LibraryCardGrid({
               </View>
             )}
 
-            {isLocked && (
+            {isCraftMode && !craftFactionLocked && (
+              <View
+                style={[
+                  styles.craftCostBadge,
+                  !canAffordCraft && !atMax && styles.craftCostBadgeUnaffordable,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.craftCostText,
+                    !canAffordCraft && !atMax && styles.craftCostTextUnaffordable,
+                  ]}
+                >
+                  ✨{dustCost}
+                </Text>
+              </View>
+            )}
+
+            {isCraftMode && atMax && (
+              <View pointerEvents="none" style={styles.maxOverlay}>
+                <Text style={styles.maxOverlayText}>MAX</Text>
+              </View>
+            )}
+
+            {browseLocked && (
+              <View pointerEvents="none" style={styles.lockOverlay}>
+                <Text style={styles.lockGlyph}>🔒</Text>
+              </View>
+            )}
+
+            {craftFactionLocked && (
               <View pointerEvents="none" style={styles.lockOverlay}>
                 <Text style={styles.lockGlyph}>🔒</Text>
               </View>
@@ -159,4 +207,33 @@ const styles = StyleSheet.create({
   },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   emptyText: { color: '#888', fontSize: 14 },
+  craftCostBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    borderWidth: 1,
+    borderColor: '#d4a04a',
+  },
+  craftCostBadgeUnaffordable: { borderColor: '#666' },
+  craftCostText: { color: '#d4a04a', fontSize: 11, fontWeight: '700' },
+  craftCostTextUnaffordable: { color: '#888' },
+  maxOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  maxOverlayText: {
+    color: '#e87878',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 2,
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
 });

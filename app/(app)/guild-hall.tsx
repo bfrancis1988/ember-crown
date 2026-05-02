@@ -231,6 +231,20 @@ export default function GuildHallScreen() {
             <ActivityIndicator color="#888" size="small" style={{ marginRight: 8 }} />
           )}
           <Pressable
+            onPress={() => router.push('/summon')}
+            style={[styles.navPill, { borderColor: accent }]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={[styles.navPillText, { color: accent }]}>✨</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/library?mode=craft')}
+            style={[styles.navPill, { borderColor: accent }]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={[styles.navPillText, { color: accent }]}>⚒</Text>
+          </Pressable>
+          <Pressable
             onPress={() => router.push('/library')}
             style={[styles.libraryButton, { borderColor: accent }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -321,6 +335,7 @@ const styles = StyleSheet.create({
   topBarRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   libraryButton: {
     paddingHorizontal: 10,
@@ -328,6 +343,15 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
   },
+  navPill: {
+    width: 32,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navPillText: { fontSize: 14, fontWeight: '700' },
   libraryButtonText: {
     fontSize: 12,
     fontWeight: '700',
