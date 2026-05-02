@@ -160,7 +160,20 @@ export default function HomeScreen() {
                 <Text style={styles.primaryButtonText}>{primaryCta.label}</Text>
               </TouchableOpacity>
             )}
-            {step >= 4 && <PlaySoloMatchButton />}
+            {step >= 4 && (
+              <>
+                <PlaySoloMatchButton />
+                <TouchableOpacity
+                  style={styles.guildHallButton}
+                  onPress={() => router.push('/guild-hall')}
+                >
+                  <Text style={styles.guildHallButtonText}>🛡 Guild Hall</Text>
+                  <Text style={styles.guildHallButtonSubtitle}>
+                    Manage your deck
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </>
         )}
       </View>
@@ -237,6 +250,28 @@ const styles = StyleSheet.create({
   },
   spinner: {
     marginBottom: 24,
+  },
+  guildHallButton: {
+    width: '100%',
+    maxWidth: 360,
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3a3a3a',
+    backgroundColor: '#1a1a1a',
+    alignItems: 'center',
+  },
+  guildHallButtonText: {
+    color: '#ddd',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  guildHallButtonSubtitle: {
+    color: '#777',
+    fontSize: 11,
+    marginTop: 2,
   },
   profileLink: {
     paddingVertical: 16,

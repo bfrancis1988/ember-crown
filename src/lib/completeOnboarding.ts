@@ -120,17 +120,22 @@ export async function completeOnboarding(
   }
 
   // Deck: expand each entry's quantity into individual slot docs with
-  // deterministic IDs of the form `${card_id}__${i}`. Three Royal Archers in
-  // the starter become slots UNT-VAN-04__0, UNT-VAN-04__1, UNT-VAN-04__2.
-  // Determinism means a duplicate invocation overwrites the same docs instead
-  // of creating new ones — second-line defense behind the Layer 1 checks.
+  // deterministic IDs of the form `${faction_underscored}_${card_id}_${i}`.
+  // Three Royal Archers in the Vanguard starter become slots
+  // Vanguard_Kingdoms_UNT-VAN-04_0..2. Determinism means a duplicate
+  // invocation overwrites the same docs instead of creating new ones —
+  // second-line defense behind the Layer 1 checks. (Phase 3 used a flatter
+  // `${card_id}__${i}` format; legacy slots from those accounts coexist
+  // fine, since slot ids are internal.)
+  const factionUnderscored = factionId.replace(/ /g, '_');
   for (const entry of starter) {
     for (let i = 0; i < entry.quantity; i++) {
-      const slotId = `${entry.card_id}__${i}`;
+      const slotId = `${factionUnderscored}_${entry.card_id}_${i}`;
       const slotRef = doc(db, 'player_active_decks', uid, 'slots', slotId);
       batch.set(slotRef, {
         slot_id: slotId,
         card_id: entry.card_id,
+        faction: factionId,
         added_at: serverTimestamp(),
       });
     }
