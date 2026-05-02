@@ -23,3 +23,5 @@ export { onMatchDebuffChange } from './match/onMatchDebuffChange';
 export { playCardToLane } from './match/playCardToLane';
 export { passTurn } from './match/passTurn';
 export { activateCommander } from './match/activateCommander';
+export { onBothPlayersPassed } from './match/onBothPlayersPassed';
+export { claimMatchRewards } from './match/claimMatchRewards';

@@ -133,7 +133,7 @@ export default function HomeScreen() {
 
   // TODO Phase 5 D9: remove with debug panel.
   const callMatchAction = async (
-    name: 'playCardToLane' | 'passTurn' | 'activateCommander',
+    name: 'playCardToLane' | 'passTurn' | 'activateCommander' | 'claimMatchRewards',
     payload: Record<string, unknown>,
   ) => {
     if (!panelMatchId.trim()) {
@@ -352,6 +352,15 @@ export default function HomeScreen() {
                     }
                   >
                     <Text style={styles.actionButtonText}>Activate</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, panelBusy && styles.disabled]}
+                    disabled={panelBusy}
+                    onPress={() =>
+                      callMatchAction('claimMatchRewards', { matchId: panelMatchId.trim() })
+                    }
+                  >
+                    <Text style={styles.actionButtonText}>Claim</Text>
                   </TouchableOpacity>
                 </View>
               </View>
