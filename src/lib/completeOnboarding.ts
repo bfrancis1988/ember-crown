@@ -3,17 +3,22 @@
 // inventory, and a 15-slot active deck for the player's chosen faction, and
 // flips player_profiles/{uid}.onboarding_step from 3 → 4.
 //
-// Phase 6 will port this body to a Cloud Function. The signature
-// `(uid, factionId) => Promise<void>` is the contract the home screen relies
-// on; keep it stable across that swap.
+// TODO Phase 6: Port to Cloud Function for full atomicity guarantees.
+//   D10.5 hotfix: dual idempotency layer (wallet+slots) plus deterministic
+//   slot IDs prevent duplicate grants in current client-side implementation.
+// The signature `(uid, factionId) => Promise<void>` is the contract the home
+// screen relies on; keep it stable across the Cloud Function swap.
 
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  limit,
+  query,
   serverTimestamp,
   writeBatch,
 } from 'firebase/firestore';
-import { randomUUID } from 'expo-crypto';
 import { db } from './firebase';
 import { STARTER_SETS } from './starterSets';
 import type { FactionId } from './factions';
@@ -23,6 +28,8 @@ export async function completeOnboarding(
   uid: string,
   factionId: FactionId
 ): Promise<void> {
+  console.log('completeOnboarding: invoked', { uid, factionId });
+
   // 1. Read profile and enforce pre-conditions.
   const profileRef = doc(db, 'player_profiles', uid);
   const profileSnap = await getDoc(profileRef);
@@ -40,12 +47,13 @@ export async function completeOnboarding(
     throw new Error('completeOnboarding: profile has no active_faction');
   }
 
-  // 2. Idempotency: if the wallet doc already exists, the player has already
-  //    been provisioned. Make sure the profile step reflects that and bail.
-  //    Covers the "user closed app mid-write" and "manual step rollback" cases.
+  // 2. Idempotency Layer 1a: wallet doc existence.
+  //    If the wallet exists, the player was already provisioned in a prior
+  //    invocation. Make sure the profile step reflects that and bail.
   const walletRef = doc(db, 'player_wallets', uid);
   const walletSnap = await getDoc(walletRef);
   if (walletSnap.exists()) {
+    console.log('completeOnboarding: skipping — wallet exists', { uid });
     if (profile.onboarding_step < 4) {
       const fixupBatch = writeBatch(db);
       fixupBatch.update(profileRef, {
@@ -57,7 +65,29 @@ export async function completeOnboarding(
     return;
   }
 
-  // 3. Look up the starter set for the chosen faction.
+  // 3. Idempotency Layer 1b: deck slots subcollection.
+  //    Catches the TOCTOU window where two concurrent invocations both saw
+  //    no wallet but one already started writing slots. A single existing
+  //    slot is enough evidence that another run is in flight or completed.
+  const slotsRef = collection(db, 'player_active_decks', uid, 'slots');
+  const slotsSnap = await getDocs(query(slotsRef, limit(1)));
+  if (!slotsSnap.empty) {
+    console.log('completeOnboarding: skipping — deck slots exist', {
+      uid,
+      first_slot_id: slotsSnap.docs[0].id,
+    });
+    if (profile.onboarding_step < 4) {
+      const fixupBatch = writeBatch(db);
+      fixupBatch.update(profileRef, {
+        onboarding_step: 4,
+        updated_at: serverTimestamp(),
+      });
+      await fixupBatch.commit();
+    }
+    return;
+  }
+
+  // 4. Look up the starter set for the chosen faction.
   const starter = STARTER_SETS[factionId];
   if (!starter) {
     throw new Error(
@@ -65,7 +95,7 @@ export async function completeOnboarding(
     );
   }
 
-  // 4. Build a single atomic batch: wallet + inventory + deck + profile bump.
+  // 5. Build a single atomic batch: wallet + inventory + deck + profile bump.
   //    ~23 ops for Vanguard (1 + 6 + 15 + 1), well under the 500-op batch cap.
   const batch = writeBatch(db);
 
@@ -89,11 +119,14 @@ export async function completeOnboarding(
     });
   }
 
-  // Deck: expand each entry's quantity into individual slot docs with fresh
-  // UUIDs. Three Royal Archers in the starter become three slots.
+  // Deck: expand each entry's quantity into individual slot docs with
+  // deterministic IDs of the form `${card_id}__${i}`. Three Royal Archers in
+  // the starter become slots UNT-VAN-04__0, UNT-VAN-04__1, UNT-VAN-04__2.
+  // Determinism means a duplicate invocation overwrites the same docs instead
+  // of creating new ones — second-line defense behind the Layer 1 checks.
   for (const entry of starter) {
     for (let i = 0; i < entry.quantity; i++) {
-      const slotId = randomUUID();
+      const slotId = `${entry.card_id}__${i}`;
       const slotRef = doc(db, 'player_active_decks', uid, 'slots', slotId);
       batch.set(slotRef, {
         slot_id: slotId,
@@ -108,5 +141,13 @@ export async function completeOnboarding(
     updated_at: serverTimestamp(),
   });
 
+  console.log('completeOnboarding: writing batch', {
+    uid,
+    starter_set_size: starter.length,
+    total_slot_count: starter.reduce((sum, e) => sum + e.quantity, 0),
+  });
+
   await batch.commit();
+
+  console.log('completeOnboarding: complete', { uid });
 }
