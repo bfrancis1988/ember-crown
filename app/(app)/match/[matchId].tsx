@@ -27,6 +27,11 @@ import { LaneRow } from '../../../src/components/match/LaneRow';
 import { CommanderTile } from '../../../src/components/match/CommanderTile';
 import { HandFan } from '../../../src/components/match/HandFan';
 import { MatchCompleteOverlay } from '../../../src/components/match/MatchCompleteOverlay';
+import {
+  TutorialTooltipProvider,
+  useTutorialTooltips,
+} from '../../../src/components/tutorial/TutorialTooltipProvider';
+import { TutorialTooltipOverlay } from '../../../src/components/tutorial/TutorialTooltipOverlay';
 import type { CardLibraryEntry } from '../../../src/types/card';
 import type { CommanderEntry } from '../../../src/types/commander';
 import type { LiveBoardState } from '../../../src/types/board';
@@ -37,6 +42,13 @@ import type { ClaimMatchRewardsResult } from '../../../src/types/matchActions';
 // each side's Melee row, so opponent's Melee is across from player's Melee.
 const PLAYER_LANE_ORDER: Lane[] = ['Melee', 'Ranged', 'Siege'];
 const OPPONENT_LANE_ORDER: Lane[] = ['Siege', 'Ranged', 'Melee'];
+
+type CompleteTutorialResult = {
+  success: true;
+  coins_earned: number;
+  shards_earned: number;
+  skipped: boolean;
+};
 
 const FALLBACK_FACTION_COLOR = '#555';
 
@@ -69,7 +81,7 @@ function laneDebuffed(side: Side, lane: Lane, session: MatchSession): boolean {
   return Boolean(session[key]);
 }
 
-export default function MatchScreen() {
+function MatchScreenInner() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -164,6 +176,76 @@ export default function MatchScreen() {
       cancelled = true;
     };
   }, [session, commanderMap]);
+
+  // ---- tutorial tooltip triggers ----
+  // Always inside the provider; gated on tutorial mode so solo matches see no
+  // tooltips. shownTriggers de-dupes within a session, so each useEffect can
+  // re-fire safely on every render once its condition holds.
+  const { showTooltip } = useTutorialTooltips();
+  const isTutorial = session?.mode === 'tutorial';
+
+  // match_start: fires once when the tutorial match becomes available.
+  useEffect(() => {
+    if (isTutorial) showTooltip('match_start');
+  }, [isTutorial, showTooltip]);
+
+  // first_card_played: fires the first time any of the player's cards reaches a lane.
+  useEffect(() => {
+    if (!isTutorial || !user || !session) return;
+    const me: Side = user.uid === session.player_b_id ? 'player_b' : 'player_a';
+    const anyInLane = cards.some(
+      (c) =>
+        c.owner === me &&
+        (c.location_state === 'melee' ||
+          c.location_state === 'ranged' ||
+          c.location_state === 'siege'),
+    );
+    if (anyInLane) showTooltip('first_card_played');
+  }, [isTutorial, user, session, cards, showTooltip]);
+
+  // first_round_ended: fires when round transitions past 1.
+  useEffect(() => {
+    if (!isTutorial || !session) return;
+    if (session.current_round >= 2) showTooltip('first_round_ended');
+  }, [isTutorial, session, showTooltip]);
+
+  // commander_activate_hint: fires from round 2 onward while commander is unused.
+  useEffect(() => {
+    if (!isTutorial || !user || !session) return;
+    if (session.current_round < 2) return;
+    const me: Side = user.uid === session.player_b_id ? 'player_b' : 'player_a';
+    const used =
+      me === 'player_a' ? session.player_a_commander_used : session.player_b_commander_used;
+    if (!used) showTooltip('commander_activate_hint');
+  }, [isTutorial, user, session, showTooltip]);
+
+  // curse_hint: fires the first time a curse appears in the player's hand.
+  useEffect(() => {
+    if (!isTutorial || !user || !session) return;
+    const me: Side = user.uid === session.player_b_id ? 'player_b' : 'player_a';
+    for (const card of cards) {
+      if (card.owner !== me || card.location_state !== 'hand') continue;
+      const entry = cardLibraryMap.get(card.card_id);
+      if (entry?.card_type === 'Spell' && entry.klass === 'Curse') {
+        showTooltip('curse_hint');
+        break;
+      }
+    }
+  }, [isTutorial, user, session, cards, cardLibraryMap, showTooltip]);
+
+  // cleanse_hint: fires the first time a cleanse appears in the player's hand.
+  useEffect(() => {
+    if (!isTutorial || !user || !session) return;
+    const me: Side = user.uid === session.player_b_id ? 'player_b' : 'player_a';
+    for (const card of cards) {
+      if (card.owner !== me || card.location_state !== 'hand') continue;
+      const entry = cardLibraryMap.get(card.card_id);
+      if (entry?.card_type === 'Spell' && entry.klass === 'Cleanse') {
+        showTooltip('cleanse_hint');
+        break;
+      }
+    }
+  }, [isTutorial, user, session, cards, cardLibraryMap, showTooltip]);
 
   // ---- guards ----
 
@@ -340,6 +422,15 @@ export default function MatchScreen() {
     return result.data as ClaimMatchRewardsResult;
   }
 
+  async function handleCompleteTutorial(): Promise<CompleteTutorialResult> {
+    const fn = httpsCallable<{ skipped: boolean }, CompleteTutorialResult>(
+      functions,
+      'completeTutorial',
+    );
+    const result = await fn({ skipped: false });
+    return result.data;
+  }
+
   function handleRetreat() {
     Alert.alert(
       'Retreat?',
@@ -498,10 +589,23 @@ export default function MatchScreen() {
           session={session}
           viewerSide={viewerSide}
           onClaim={handleClaim}
+          onCompleteTutorial={handleCompleteTutorial}
           onReturnHome={() => router.replace('/home')}
         />
       ) : null}
     </View>
+  );
+}
+
+export default function MatchScreen() {
+  // Provider always wraps; tooltip useEffects inside MatchScreenInner gate on
+  // session.mode === 'tutorial', so solo matches see no tooltips. The overlay
+  // returns null when no trigger is active.
+  return (
+    <TutorialTooltipProvider>
+      <MatchScreenInner />
+      <TutorialTooltipOverlay />
+    </TutorialTooltipProvider>
   );
 }
 

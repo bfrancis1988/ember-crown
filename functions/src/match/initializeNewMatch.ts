@@ -20,9 +20,19 @@ import {
   pickFirstTurn,
 } from './buildMatch';
 import { executeAITurnInternal } from './executeAITurn';
+import {
+  TUTORIAL_PLAYER_DECK_CARD_IDS,
+  TUTORIAL_BOT_DECK_CARD_IDS,
+  TUTORIAL_BOT_COMMANDER_ID,
+  TUTORIAL_BOT_SCRIPTED_ACTIONS,
+} from '../lib/tutorialDecks';
 import type { InitializeNewMatchResult } from '../types/actions';
 
-export const initializeNewMatch = onCall<unknown, Promise<InitializeNewMatchResult>>(
+type InitializeNewMatchInput = {
+  mode?: 'solo' | 'tutorial';
+};
+
+export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<InitializeNewMatchResult>>(
   { region: 'us-central1' },
   async (request) => {
     if (!request.auth) {
@@ -30,6 +40,8 @@ export const initializeNewMatch = onCall<unknown, Promise<InitializeNewMatchResu
     }
     const uid = request.auth.uid;
     const db = admin.firestore();
+
+    const mode = request.data?.mode ?? 'solo';
 
     // 1. Profile
     const profileSnap = await db.collection('player_profiles').doc(uid).get();
@@ -44,22 +56,40 @@ export const initializeNewMatch = onCall<unknown, Promise<InitializeNewMatchResu
       throw new HttpsError('failed-precondition', 'Onboarding not complete.');
     }
 
-    // 2. Active deck (15 slots)
-    const deckSnap = await db
-      .collection('player_active_decks').doc(uid)
-      .collection('slots').get();
-    if (deckSnap.size !== DECK_SIZE) {
-      throw new HttpsError(
-        'failed-precondition',
-        `Active deck must have exactly ${DECK_SIZE} cards (has ${deckSnap.size}).`,
-      );
-    }
-    const playerACardIds = deckSnap.docs.map((d) => d.data().card_id as string);
+    let playerACardIds: string[];
+    let playerBCardIds: string[];
+    let playerACommanderId: string;
+    let botCommanderId: string;
 
-    // 3. Bot side
-    const botFaction = profile.active_faction as string;
-    const playerBCardIds = await buildBotDeckCardIds(botFaction, db);
-    const botCommanderId = await pickBotCommander(botFaction, db);
+    if (mode === 'tutorial') {
+      if (profile.tutorial_completed) {
+        throw new HttpsError('failed-precondition', 'Tutorial already completed.');
+      }
+      // Tutorial uses curated decks; player's active_deck is ignored.
+      playerACardIds = [...TUTORIAL_PLAYER_DECK_CARD_IDS];
+      playerBCardIds = [...TUTORIAL_BOT_DECK_CARD_IDS];
+      // Both sides use the same Vanguard commander for a deterministic teach-flow.
+      playerACommanderId = TUTORIAL_BOT_COMMANDER_ID;
+      botCommanderId = TUTORIAL_BOT_COMMANDER_ID;
+    } else {
+      // 2. Active deck (15 slots)
+      const deckSnap = await db
+        .collection('player_active_decks').doc(uid)
+        .collection('slots').get();
+      if (deckSnap.size !== DECK_SIZE) {
+        throw new HttpsError(
+          'failed-precondition',
+          `Active deck must have exactly ${DECK_SIZE} cards (has ${deckSnap.size}).`,
+        );
+      }
+      playerACardIds = deckSnap.docs.map((d) => d.data().card_id as string);
+
+      // 3. Bot side
+      const botFaction = profile.active_faction as string;
+      playerBCardIds = await buildBotDeckCardIds(botFaction, db);
+      playerACommanderId = profile.selected_commander as string;
+      botCommanderId = await pickBotCommander(botFaction, db);
+    }
 
     // 4. base_power lookup for every distinct card_id used. card_library is
     // keyed by card_id, so getAll() is cleaner than an 'in' query (no 30-id
@@ -88,17 +118,22 @@ export const initializeNewMatch = onCall<unknown, Promise<InitializeNewMatchResu
     // The cast keeps the shared MatchSession/LiveBoardState types honest
     // for the read side.
     const now = FieldValue.serverTimestamp() as unknown as admin.firestore.Timestamp;
-    const firstTurn = pickFirstTurn();
+    // Player always goes first in tutorial; coin flip otherwise.
+    const firstTurn = mode === 'tutorial' ? 'player_a' : pickFirstTurn();
 
     const matchSession = makeInitialMatchSession(
       {
         match_id: matchId,
         player_a_id: uid,
         player_b_id: AI_BOT_UID,
-        player_a_commander_id: profile.selected_commander as string,
+        player_a_commander_id: playerACommanderId,
         player_b_commander_id: botCommanderId,
         active_turn: firstTurn,
         bot_difficulty: 'standard',
+        mode,
+        ...(mode === 'tutorial'
+          ? { bot_scripted_actions: [...TUTORIAL_BOT_SCRIPTED_ACTIONS] }
+          : {}),
       },
       now,
     );
@@ -122,10 +157,11 @@ export const initializeNewMatch = onCall<unknown, Promise<InitializeNewMatchResu
 
     logger.info('Match initialized', {
       match_id: matchId,
+      mode,
       player_a_id: uid,
       player_b_id: AI_BOT_UID,
       first_turn: firstTurn,
-      player_a_commander: profile.selected_commander,
+      player_a_commander: playerACommanderId,
       player_b_commander: botCommanderId,
     });
 
@@ -147,7 +183,7 @@ export const initializeNewMatch = onCall<unknown, Promise<InitializeNewMatchResu
     return {
       match_id: matchId,
       first_turn: firstTurn,
-      player_a_commander_id: profile.selected_commander as string,
+      player_a_commander_id: playerACommanderId,
       player_b_commander_id: botCommanderId,
     };
   },

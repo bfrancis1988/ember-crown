@@ -162,6 +162,17 @@ export default function HomeScreen() {
             )}
             {step >= 4 && (
               <>
+                {profile && !profile.tutorial_completed && (
+                  <TouchableOpacity
+                    style={styles.tutorialButton}
+                    onPress={() => router.push('/tutorial')}
+                  >
+                    <Text style={styles.tutorialButtonText}>📜 Begin Tutorial</Text>
+                    <Text style={styles.tutorialButtonSubtitle}>
+                      Learn the art of command
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 <PlaySoloMatchButton />
                 <TouchableOpacity
                   style={styles.guildHallButton}
@@ -290,6 +301,29 @@ const styles = StyleSheet.create({
     color: '#777',
     fontSize: 11,
     marginTop: 2,
+  },
+  tutorialButton: {
+    width: '100%',
+    maxWidth: 360,
+    marginBottom: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: '#d4a04a',
+    alignItems: 'center',
+  },
+  tutorialButtonText: {
+    color: '#111',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  tutorialButtonSubtitle: {
+    color: '#3a2c12',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 3,
+    letterSpacing: 0.3,
   },
   profileLink: {
     paddingVertical: 16,

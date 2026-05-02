@@ -48,7 +48,8 @@ service cloud.firestore {
     //       to bypass wallet/inventory provisioning)
     //
     // Forbidden for client write (Cloud Functions / admin only):
-    //   unlocked_factions, tutorial_reward_claimed, created_at, player_id
+    //   unlocked_factions, tutorial_reward_claimed, tutorial_completed,
+    //   created_at, player_id
     function profileUpdateIsSafe() {
       let allowedFields = [
         'username',

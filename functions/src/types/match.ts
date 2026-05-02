@@ -3,10 +3,14 @@
 
 import { Timestamp } from 'firebase-admin/firestore';
 import type { Lane } from '../lib/matchConstants';
+import type { ScriptedAction } from '../lib/tutorialDecks';
+
+export type { ScriptedAction };
 
 export type MatchStatus = 'in_progress' | 'game_over';
 export type Side = 'player_a' | 'player_b';
 export type BotDifficulty = 'standard' | 'easy' | 'boss';
+export type MatchMode = 'solo' | 'tutorial' | 'campaign';
 
 export type MatchSession = {
   match_id: string;
@@ -43,6 +47,10 @@ export type MatchSession = {
 
   bot_difficulty: BotDifficulty;
 
+  mode: MatchMode;
+  bot_scripted_actions?: ScriptedAction[];
+  bot_scripted_action_index?: number;
+
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -50,12 +58,15 @@ export type MatchSession = {
 export type MatchSessionInit = Pick<MatchSession,
   'match_id' | 'player_a_id' | 'player_b_id' |
   'player_a_commander_id' | 'player_b_commander_id' |
-  'active_turn' | 'bot_difficulty'
->;
+  'active_turn' | 'bot_difficulty' | 'mode'
+> & {
+  bot_scripted_actions?: ScriptedAction[];
+};
 
 export function makeInitialMatchSession(init: MatchSessionInit, now: Timestamp): MatchSession {
+  const { bot_scripted_actions, ...rest } = init;
   return {
-    ...init,
+    ...rest,
     status: 'in_progress',
     current_round: 1,
     player_a_wins: 0,
@@ -74,6 +85,10 @@ export function makeInitialMatchSession(init: MatchSessionInit, now: Timestamp):
     player_b_siege_debuffed: false,
     player_a_claimed: false,
     player_b_claimed: false,
+    ...(bot_scripted_actions !== undefined ? {
+      bot_scripted_actions,
+      bot_scripted_action_index: 0,
+    } : {}),
     created_at: now,
     updated_at: now,
   };

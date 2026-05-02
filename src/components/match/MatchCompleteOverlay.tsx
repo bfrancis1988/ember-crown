@@ -16,10 +16,18 @@ import {
 import type { MatchSession, Side } from '../../types/match';
 import type { ClaimMatchRewardsResult } from '../../types/matchActions';
 
+type CompleteTutorialResult = {
+  success: true;
+  coins_earned: number;
+  shards_earned: number;
+  skipped: boolean;
+};
+
 type Props = {
   session: MatchSession;
   viewerSide: Side;
   onClaim: () => Promise<ClaimMatchRewardsResult>;
+  onCompleteTutorial?: () => Promise<CompleteTutorialResult>;
   onReturnHome: () => void;
 };
 
@@ -27,21 +35,32 @@ export function MatchCompleteOverlay({
   session,
   viewerSide,
   onClaim,
+  onCompleteTutorial,
   onReturnHome,
 }: Props) {
   const [hasClaimed, setHasClaimed] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
-  const [claimResult, setClaimResult] = useState<ClaimMatchRewardsResult | null>(null);
+  const [claimResult, setClaimResult] = useState<
+    { coins_earned: number; shards_earned: number } | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
+
+  const isTutorial = session.mode === 'tutorial';
 
   const myWins = viewerSide === 'player_a' ? session.player_a_wins : session.player_b_wins;
   const oppWins = viewerSide === 'player_a' ? session.player_b_wins : session.player_a_wins;
 
-  // Result classification — matches functions/rewards logic.
-  const result: 'VICTORY' | 'DEFEAT' | 'DRAW' =
-    myWins > oppWins ? 'VICTORY' : myWins < oppWins ? 'DEFEAT' : 'DRAW';
+  // Tutorial doesn't classify W/L — it's a teaching match.
+  const result: 'VICTORY' | 'DEFEAT' | 'DRAW' | 'TUTORIAL' = isTutorial
+    ? 'TUTORIAL'
+    : myWins > oppWins ? 'VICTORY' : myWins < oppWins ? 'DEFEAT' : 'DRAW';
   const resultColor =
-    result === 'VICTORY' ? '#5cd35c' : result === 'DEFEAT' ? '#e05a5a' : '#bbb';
+    result === 'VICTORY' ? '#5cd35c'
+    : result === 'DEFEAT' ? '#e05a5a'
+    : result === 'TUTORIAL' ? '#d4a04a'
+    : '#bbb';
+
+  const headerLabel = isTutorial ? 'Tutorial Complete' : 'Match Complete';
 
   const alreadyClaimedFlag =
     viewerSide === 'player_a' ? session.player_a_claimed : session.player_b_claimed;
@@ -50,8 +69,16 @@ export function MatchCompleteOverlay({
     setIsClaiming(true);
     setError(null);
     try {
-      const r = await onClaim();
-      setClaimResult(r);
+      if (isTutorial) {
+        if (!onCompleteTutorial) {
+          throw new Error('Tutorial complete handler missing.');
+        }
+        const r = await onCompleteTutorial();
+        setClaimResult({ coins_earned: r.coins_earned, shards_earned: r.shards_earned });
+      } else {
+        const r = await onClaim();
+        setClaimResult({ coins_earned: r.coins_earned, shards_earned: r.shards_earned });
+      }
       setHasClaimed(true);
     } catch (err: any) {
       setError(err?.message ?? 'Claim failed.');
@@ -63,11 +90,22 @@ export function MatchCompleteOverlay({
   return (
     <View style={styles.backdrop}>
       <View style={styles.modal}>
-        <Text style={styles.header}>Match Complete</Text>
-        <Text style={[styles.result, { color: resultColor }]}>{result}</Text>
-        <Text style={styles.score}>
-          {myWins} <Text style={styles.scoreDash}>—</Text> {oppWins}
-        </Text>
+        <Text style={styles.header}>{headerLabel}</Text>
+        {isTutorial ? (
+          <Text style={[styles.result, { color: resultColor }]}>WELL DONE</Text>
+        ) : (
+          <>
+            <Text style={[styles.result, { color: resultColor }]}>{result}</Text>
+            <Text style={styles.score}>
+              {myWins} <Text style={styles.scoreDash}>—</Text> {oppWins}
+            </Text>
+          </>
+        )}
+        {isTutorial && !hasClaimed ? (
+          <Text style={styles.tutorialBlurb}>
+            Claim your starting rewards and begin your campaign.
+          </Text>
+        ) : null}
 
         {hasClaimed && claimResult ? (
           <>
@@ -82,7 +120,9 @@ export function MatchCompleteOverlay({
               </Text>
             </View>
             <TouchableOpacity style={styles.primaryButton} onPress={onReturnHome}>
-              <Text style={styles.primaryButtonText}>Return to Home</Text>
+              <Text style={styles.primaryButtonText}>
+                {isTutorial ? 'Continue to Home' : 'Return to Home'}
+              </Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -97,13 +137,17 @@ export function MatchCompleteOverlay({
                 <ActivityIndicator color="#111" />
               ) : (
                 <Text style={styles.primaryButtonText}>
-                  {alreadyClaimedFlag ? 'Continue' : 'Claim Rewards'}
+                  {isTutorial
+                    ? 'Complete Tutorial'
+                    : alreadyClaimedFlag ? 'Continue' : 'Claim Rewards'}
                 </Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={onReturnHome}>
-              <Text style={styles.secondaryButtonText}>Return to Home</Text>
-            </TouchableOpacity>
+            {!isTutorial && (
+              <TouchableOpacity style={styles.secondaryButton} onPress={onReturnHome}>
+                <Text style={styles.secondaryButtonText}>Return to Home</Text>
+              </TouchableOpacity>
+            )}
           </>
         )}
       </View>
@@ -197,6 +241,14 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: '#888',
     fontSize: 13,
+  },
+  tutorialBlurb: {
+    color: '#bbb',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 22,
+    paddingHorizontal: 8,
+    lineHeight: 21,
   },
   disabled: {
     opacity: 0.6,

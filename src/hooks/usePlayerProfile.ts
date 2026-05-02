@@ -53,6 +53,7 @@ export function usePlayerProfile(): UsePlayerProfileResult {
               selected_commander: null,
               unlocked_factions: ['Vanguard Kingdoms'],
               tutorial_reward_claimed: false,
+              tutorial_completed: false,
               created_at: serverTimestamp(),
               updated_at: serverTimestamp(),
             });
@@ -65,7 +66,13 @@ export function usePlayerProfile(): UsePlayerProfileResult {
         }
 
         creatingRef.current = false;
-        setProfile(snapshot.data() as PlayerProfile);
+        const data = snapshot.data() as PlayerProfile;
+        // Lazy-migration: profiles created before tutorial_completed existed
+        // surface as `false` until a write populates the field.
+        if (data.tutorial_completed === undefined) {
+          data.tutorial_completed = false;
+        }
+        setProfile(data);
         setIsLoading(false);
       },
       (err) => {

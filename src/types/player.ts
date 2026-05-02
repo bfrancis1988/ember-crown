@@ -11,6 +11,7 @@ export type PlayerProfile = {
   selected_commander: string | null;
   unlocked_factions: string[];
   tutorial_reward_claimed: boolean;
+  tutorial_completed: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

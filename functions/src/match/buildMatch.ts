@@ -81,10 +81,19 @@ export function buildBoardStateDocs(args: {
 }): LiveBoardState[] {
   const { matchId, playerACardIds, playerBCardIds, cardLibraryMap, now } = args;
 
-  if (playerACardIds.length !== DECK_SIZE || playerBCardIds.length !== DECK_SIZE) {
+  // Player deck must always be exactly DECK_SIZE.
+  // Bot deck must be at least STARTING_HAND_SIZE (so it can deal a hand);
+  // tutorial bots use a smaller curated deck.
+  if (playerACardIds.length !== DECK_SIZE) {
     throw new Error(
-      `Both decks must have exactly ${DECK_SIZE} cards ` +
-        `(got A=${playerACardIds.length}, B=${playerBCardIds.length})`,
+      `Player deck must have exactly ${DECK_SIZE} cards ` +
+        `(got ${playerACardIds.length})`,
+    );
+  }
+  if (playerBCardIds.length < STARTING_HAND_SIZE) {
+    throw new Error(
+      `Bot deck must have at least ${STARTING_HAND_SIZE} cards ` +
+        `(got ${playerBCardIds.length})`,
     );
   }
 
