@@ -5,11 +5,15 @@
 // for the screen to display via Alert.
 
 import {
+  collection,
   deleteDoc,
   doc,
+  getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { FactionId } from './factions';
@@ -31,10 +35,24 @@ export async function addCardToDeck(
     throw new Error('No more copies available.');
   }
 
-  // New-format slot id: faction prefix + card id + index. Index is the next
-  // available copy (which equals the current quantity_in_deck before insert).
   const factionUnderscored = factionId.replace(/ /g, '_');
-  const slotId = `${factionUnderscored}_${cardId}_${quantityInDeck}`;
+  const prefix = `${factionUnderscored}_${cardId}_`;
+
+  // Find the smallest unused index for this card_id. Using quantityInDeck as
+  // the index would collide after a non-tail remove (e.g. removing _1 leaves
+  // _0, _2; quantityInDeck=2 picks _2 and setDoc overwrites it silently).
+  const slotsCol = collection(db, 'player_active_decks', uid, 'slots');
+  const existing = await getDocs(query(slotsCol, where('card_id', '==', cardId)));
+  const usedIndices = new Set<number>();
+  existing.forEach((d) => {
+    if (d.id.startsWith(prefix)) {
+      const n = parseInt(d.id.slice(prefix.length), 10);
+      if (Number.isFinite(n)) usedIndices.add(n);
+    }
+  });
+  let i = 0;
+  while (usedIndices.has(i)) i++;
+  const slotId = `${prefix}${i}`;
 
   const slotRef = doc(db, 'player_active_decks', uid, 'slots', slotId);
   await setDoc(slotRef, {

@@ -225,8 +225,20 @@ export default function GuildHallScreen() {
           <Text style={styles.backText}>←</Text>
         </Pressable>
         <Text style={styles.title}>Guild Hall</Text>
-        <View style={styles.topBarRightSpacer}>
-          {actionLoading && <ActivityIndicator color="#888" size="small" />}
+        {/* TODO: Phase 7 polish may move this to a tab bar or main nav. */}
+        <View style={styles.topBarRight}>
+          {actionLoading && (
+            <ActivityIndicator color="#888" size="small" style={{ marginRight: 8 }} />
+          )}
+          <Pressable
+            onPress={() => router.push('/library')}
+            style={[styles.libraryButton, { borderColor: accent }]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={[styles.libraryButtonText, { color: accent }]}>
+              📖 Library
+            </Text>
+          </Pressable>
         </View>
       </View>
 
@@ -306,9 +318,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
-  topBarRightSpacer: {
-    width: 40,
-    alignItems: 'flex-end',
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  libraryButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  libraryButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   factionHeader: {
     flexDirection: 'row',

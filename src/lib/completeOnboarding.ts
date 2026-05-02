@@ -1,158 +1,43 @@
 // src/lib/completeOnboarding.ts
-// Final step of the new-player flow. Atomically grants the wallet, starter
-// inventory, and a 15-slot active deck for the player's chosen faction, and
-// flips player_profiles/{uid}.onboarding_step from 3 → 4.
+// Final step of the new-player flow. Thin wrapper around the
+// completeOnboardingFn Cloud Function, which atomically grants the wallet,
+// starter inventory, and 15-slot active deck for the player's chosen
+// faction and flips player_profiles/{uid}.onboarding_step from 3 → 4.
 //
-// TODO Phase 6: Port to Cloud Function for full atomicity guarantees.
-//   D10.5 hotfix: dual idempotency layer (wallet+slots) plus deterministic
-//   slot IDs prevent duplicate grants in current client-side implementation.
-// The signature `(uid, factionId) => Promise<void>` is the contract the home
-// screen relies on; keep it stable across the Cloud Function swap.
+// Phase 5.75 hotfix: Cloud Function port complete.
+//   Previously: client-side writeBatch with dual idempotency (D10.5 hotfix).
+//   Now: server-side Cloud Function with Firestore transaction. True atomicity.
+//   The client-side wrapper is preserved so home.tsx's useEffect doesn't
+//   need to change shape.
 
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  limit,
-  query,
-  serverTimestamp,
-  writeBatch,
-} from 'firebase/firestore';
-import { db } from './firebase';
-import { STARTER_SETS } from './starterSets';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from './firebase';
 import type { FactionId } from './factions';
-import type { PlayerProfile } from '../types/player';
 
+type CompleteOnboardingResult = {
+  success: true;
+  onboarding_step: 4;
+};
+
+// `uid` is intentionally unused: the Cloud Function reads it from
+// request.auth. We keep it in the signature so home.tsx's call site doesn't
+// have to change. Phase 6 may revisit if we add a server-side audit log
+// that wants the client to echo the uid explicitly.
 export async function completeOnboarding(
   uid: string,
   factionId: FactionId
 ): Promise<void> {
-  console.log('completeOnboarding: invoked', { uid, factionId });
+  console.log('completeOnboarding: invoking Cloud Function', { uid, factionId });
 
-  // 1. Read profile and enforce pre-conditions.
-  const profileRef = doc(db, 'player_profiles', uid);
-  const profileSnap = await getDoc(profileRef);
-  if (!profileSnap.exists()) {
-    throw new Error('completeOnboarding: player profile does not exist');
-  }
-  const profile = profileSnap.data() as PlayerProfile;
-
-  if (profile.onboarding_step < 3) {
-    throw new Error(
-      `completeOnboarding: profile not ready (onboarding_step=${profile.onboarding_step}, expected 3)`
+  try {
+    const fn = httpsCallable<{ factionId: string }, CompleteOnboardingResult>(
+      functions,
+      'completeOnboardingFn'
     );
+    const result = await fn({ factionId });
+    console.log('completeOnboarding: Cloud Function returned', { uid, result: result.data });
+  } catch (err: any) {
+    console.error('completeOnboarding: Cloud Function failed', { uid, error: err.message });
+    throw err;
   }
-  if (!profile.active_faction) {
-    throw new Error('completeOnboarding: profile has no active_faction');
-  }
-
-  // 2. Idempotency Layer 1a: wallet doc existence.
-  //    If the wallet exists, the player was already provisioned in a prior
-  //    invocation. Make sure the profile step reflects that and bail.
-  const walletRef = doc(db, 'player_wallets', uid);
-  const walletSnap = await getDoc(walletRef);
-  if (walletSnap.exists()) {
-    console.log('completeOnboarding: skipping — wallet exists', { uid });
-    if (profile.onboarding_step < 4) {
-      const fixupBatch = writeBatch(db);
-      fixupBatch.update(profileRef, {
-        onboarding_step: 4,
-        updated_at: serverTimestamp(),
-      });
-      await fixupBatch.commit();
-    }
-    return;
-  }
-
-  // 3. Idempotency Layer 1b: deck slots subcollection.
-  //    Catches the TOCTOU window where two concurrent invocations both saw
-  //    no wallet but one already started writing slots. A single existing
-  //    slot is enough evidence that another run is in flight or completed.
-  const slotsRef = collection(db, 'player_active_decks', uid, 'slots');
-  const slotsSnap = await getDocs(query(slotsRef, limit(1)));
-  if (!slotsSnap.empty) {
-    console.log('completeOnboarding: skipping — deck slots exist', {
-      uid,
-      first_slot_id: slotsSnap.docs[0].id,
-    });
-    if (profile.onboarding_step < 4) {
-      const fixupBatch = writeBatch(db);
-      fixupBatch.update(profileRef, {
-        onboarding_step: 4,
-        updated_at: serverTimestamp(),
-      });
-      await fixupBatch.commit();
-    }
-    return;
-  }
-
-  // 4. Look up the starter set for the chosen faction.
-  const starter = STARTER_SETS[factionId];
-  if (!starter) {
-    throw new Error(
-      `completeOnboarding: no starter set defined for faction "${factionId}"`
-    );
-  }
-
-  // 5. Build a single atomic batch: wallet + inventory + deck + profile bump.
-  //    ~23 ops for Vanguard (1 + 6 + 15 + 1), well under the 500-op batch cap.
-  const batch = writeBatch(db);
-
-  batch.set(walletRef, {
-    player_id: uid,
-    coins: 0,
-    shards: 0,
-    keys: 0,
-    created_at: serverTimestamp(),
-    updated_at: serverTimestamp(),
-  });
-
-  // Inventory: one doc per starter entry, doc id IS the card_id, quantity is
-  // collapsed onto the doc.
-  for (const entry of starter) {
-    const cardRef = doc(db, 'player_inventories', uid, 'cards', entry.card_id);
-    batch.set(cardRef, {
-      card_id: entry.card_id,
-      quantity_owned: entry.quantity,
-      acquired_at: serverTimestamp(),
-    });
-  }
-
-  // Deck: expand each entry's quantity into individual slot docs with
-  // deterministic IDs of the form `${faction_underscored}_${card_id}_${i}`.
-  // Three Royal Archers in the Vanguard starter become slots
-  // Vanguard_Kingdoms_UNT-VAN-04_0..2. Determinism means a duplicate
-  // invocation overwrites the same docs instead of creating new ones —
-  // second-line defense behind the Layer 1 checks. (Phase 3 used a flatter
-  // `${card_id}__${i}` format; legacy slots from those accounts coexist
-  // fine, since slot ids are internal.)
-  const factionUnderscored = factionId.replace(/ /g, '_');
-  for (const entry of starter) {
-    for (let i = 0; i < entry.quantity; i++) {
-      const slotId = `${factionUnderscored}_${entry.card_id}_${i}`;
-      const slotRef = doc(db, 'player_active_decks', uid, 'slots', slotId);
-      batch.set(slotRef, {
-        slot_id: slotId,
-        card_id: entry.card_id,
-        faction: factionId,
-        added_at: serverTimestamp(),
-      });
-    }
-  }
-
-  batch.update(profileRef, {
-    onboarding_step: 4,
-    updated_at: serverTimestamp(),
-  });
-
-  console.log('completeOnboarding: writing batch', {
-    uid,
-    starter_set_size: starter.length,
-    total_slot_count: starter.reduce((sum, e) => sum + e.quantity, 0),
-  });
-
-  await batch.commit();
-
-  console.log('completeOnboarding: complete', { uid });
 }
