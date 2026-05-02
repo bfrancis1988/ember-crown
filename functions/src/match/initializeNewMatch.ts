@@ -19,6 +19,7 @@ import {
   buildBoardStateDocs,
   pickFirstTurn,
 } from './buildMatch';
+import { executeAITurnInternal } from './executeAITurn';
 import type { InitializeNewMatchResult } from '../types/actions';
 
 export const initializeNewMatch = onCall<unknown, Promise<InitializeNewMatchResult>>(
@@ -127,6 +128,21 @@ export const initializeNewMatch = onCall<unknown, Promise<InitializeNewMatchResu
       player_a_commander: profile.selected_commander,
       player_b_commander: botCommanderId,
     });
+
+    // If the bot won the coin flip, kick off its turn now.
+    // onMatchTurnChange does not fire on document creation, so we must
+    // invoke executeAITurnInternal directly here. Fire-and-forget: the
+    // client gets its match_id back immediately and observes the bot's
+    // play via its onSnapshot subscription.
+    if (firstTurn === 'player_b') {
+      logger.info('Bot won coin flip; dispatching first AI turn', { match_id: matchId });
+      executeAITurnInternal(matchId, db).catch((err) => {
+        logger.error('executeAITurn from initializeNewMatch failed', {
+          match_id: matchId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }
 
     return {
       match_id: matchId,
