@@ -2,7 +2,7 @@
 // Live profile screen. Subscribes to player_profiles/{uid} via usePlayerProfile.
 // Edits made here OR from the Firebase Console update the UI in real time.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -28,14 +28,19 @@ export default function ProfileScreen() {
   const [usernameDraft, setUsernameDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [commanderName, setCommanderName] = useState<string | null>(null);
+  const lastSeenUsernameRef = useRef<string | undefined>(undefined);
 
-  // Seed the input with the current username on first load only — don't clobber
-  // what the user is typing on subsequent snapshots.
+  // Sync the draft to profile.username whenever the *server* value changes
+  // (initial load and external Firestore edits). Tracking the last reflected
+  // value in a ref — rather than guarding on draft contents — lets the user
+  // freely clear the field without it snapping back.
   useEffect(() => {
-    if (profile && usernameDraft === '') {
+    if (!profile) return;
+    if (lastSeenUsernameRef.current !== profile.username) {
       setUsernameDraft(profile.username);
+      lastSeenUsernameRef.current = profile.username;
     }
-  }, [profile, usernameDraft]);
+  }, [profile?.username]);
 
   // Resolve commander_name from commander_library on every selected_commander change.
   useEffect(() => {
