@@ -2,7 +2,8 @@
 //
 // One-time seed script: reads Card_Library.csv and Commander_Library.csv
 // from scripts/seed-data/, applies schema rewrites, and writes to Firestore
-// collections card_library and commander_library.
+// collections card_library and commander_library. Also seeds the 54
+// campaign_stages docs (Phase 5.5) from scripts/seed-data/campaign_stages.ts.
 //
 // Run with: npx tsx scripts/seed-firestore.ts
 //
@@ -12,7 +13,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { parse } from 'csv-parse/sync';
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Firestore } from 'firebase-admin/firestore';
+import { CAMPAIGN_STAGES } from './seed-data/campaign_stages';
 
 // ---------- Setup ----------
 
@@ -241,6 +243,78 @@ async function writeBatch(
   await batch.commit();
 }
 
+// ---------- Campaign stages ----------
+
+async function seedCampaignStages(db: Firestore): Promise<void> {
+  console.log('→ Seeding campaign stages...');
+  const stagesCol = db.collection('campaign_stages');
+
+  // Idempotency: if a full seed (54 docs) already exists, skip. A partial state
+  // (e.g. an earlier crash mid-batch) gets a warning and a re-write — the
+  // batch.set() with deterministic stage_ids is idempotent.
+  const existing = await stagesCol.count().get();
+  const existingCount = existing.data().count;
+  if (existingCount >= CAMPAIGN_STAGES.length) {
+    console.log(`  ✓ ${existingCount} stages already exist; skipping.`);
+    return;
+  }
+  if (existingCount > 0) {
+    console.log(
+      `  ⚠ Partial state detected (${existingCount}/${CAMPAIGN_STAGES.length} stages). Re-writing.`
+    );
+  }
+
+  // Load card_library to compute opponent_deck_card_ids per stage.
+  // Bots use unit-only decks (matches the D3 bot pattern).
+  const cardLibrarySnap = await db.collection('card_library').get();
+  const cardsByFaction = new Map<string, string[]>();
+  cardLibrarySnap.docs.forEach((d) => {
+    const data = d.data();
+    if (data.card_type !== 'Unit') return;
+    const list = cardsByFaction.get(data.faction) ?? [];
+    list.push(data.card_id);
+    cardsByFaction.set(data.faction, list);
+  });
+
+  function buildDeck(factionId: string): string[] {
+    const available = cardsByFaction.get(factionId) ?? [];
+    if (available.length === 0) {
+      console.warn(`  ⚠ No unit cards found for faction ${factionId}!`);
+      return [];
+    }
+    const deck: string[] = [];
+    for (let i = 0; i < 15; i++) {
+      // Cycle through the faction's units. Phase 7 will hand-tune per stage.
+      deck.push(available[i % available.length]);
+    }
+    return deck;
+  }
+
+  let batch = db.batch();
+  let writeCount = 0;
+  let totalWritten = 0;
+  for (const seed of CAMPAIGN_STAGES) {
+    const stage = {
+      ...seed,
+      opponent_deck_card_ids: buildDeck(seed.faction),
+      created_at: FieldValue.serverTimestamp(),
+    };
+    const ref = stagesCol.doc(stage.stage_id);
+    batch.set(ref, stage);
+    writeCount++;
+    totalWritten++;
+    // Firestore batch limit is 500 ops. 54 fits in one, but guard anyway.
+    if (writeCount >= 450) {
+      await batch.commit();
+      batch = db.batch();
+      writeCount = 0;
+    }
+  }
+  if (writeCount > 0) await batch.commit();
+
+  console.log(`  ✓ Seeded ${totalWritten} campaign stages.`);
+}
+
 // ---------- Main ----------
 
 async function main() {
@@ -268,6 +342,8 @@ async function main() {
   console.log(`→ Writing ${commanderDocs.length} commanders to commander_library...`);
   await writeBatch('commander_library', commanderDocs);
   console.log('  ✓ Commanders written');
+
+  await seedCampaignStages(db);
 
   console.log('\n✓ Seed complete.');
 }
