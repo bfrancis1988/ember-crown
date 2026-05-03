@@ -12,7 +12,7 @@ import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { makeInitialMatchSession } from '../types/match';
-import { AI_BOT_UID, DECK_SIZE } from '../lib/matchConstants';
+import { AI_BOT_UID, DECK_SIZE, type Lane } from '../lib/matchConstants';
 import {
   buildBotDeckCardIds,
   pickBotCommander,
@@ -27,9 +27,11 @@ import {
   TUTORIAL_BOT_SCRIPTED_ACTIONS,
 } from '../lib/tutorialDecks';
 import type { InitializeNewMatchResult } from '../types/actions';
+import type { CampaignStage } from '../types/campaign';
 
 type InitializeNewMatchInput = {
-  mode?: 'solo' | 'tutorial';
+  mode?: 'solo' | 'tutorial' | 'campaign';
+  stage_id?: string;
 };
 
 export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<InitializeNewMatchResult>>(
@@ -42,6 +44,7 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
     const db = admin.firestore();
 
     const mode = request.data?.mode ?? 'solo';
+    const requestedStageId = request.data?.stage_id;
 
     // 1. Profile
     const profileSnap = await db.collection('player_profiles').doc(uid).get();
@@ -60,6 +63,7 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
     let playerBCardIds: string[];
     let playerACommanderId: string;
     let botCommanderId: string;
+    let campaignStage: CampaignStage | null = null;
 
     if (mode === 'tutorial') {
       if (profile.tutorial_completed) {
@@ -71,6 +75,61 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
       // Both sides use the same Vanguard commander for a deterministic teach-flow.
       playerACommanderId = TUTORIAL_BOT_COMMANDER_ID;
       botCommanderId = TUTORIAL_BOT_COMMANDER_ID;
+    } else if (mode === 'campaign') {
+      if (!requestedStageId) {
+        throw new HttpsError('invalid-argument', 'stage_id is required for campaign mode.');
+      }
+
+      // Load stage data
+      const stageSnap = await db.collection('campaign_stages').doc(requestedStageId).get();
+      if (!stageSnap.exists) {
+        throw new HttpsError('not-found', `Campaign stage not found: ${requestedStageId}`);
+      }
+      campaignStage = stageSnap.data() as CampaignStage;
+
+      // Verify faction unlock
+      const unlockedFactions = (profile.unlocked_factions ?? []) as string[];
+      if (!unlockedFactions.includes(campaignStage.faction)) {
+        throw new HttpsError(
+          'permission-denied',
+          `Faction ${campaignStage.faction} not yet unlocked.`,
+        );
+      }
+
+      // Verify stage progression: previous stage must be completed
+      if (campaignStage.stage_number > 1) {
+        const progressSnap = await db
+          .collection('player_campaign_progress')
+          .doc(uid)
+          .get();
+        const progressData = progressSnap.exists ? progressSnap.data() : null;
+        const factionProgress =
+          (progressData?.progress?.[campaignStage.faction] as number | undefined) ?? 0;
+        if (factionProgress < campaignStage.stage_number - 1) {
+          throw new HttpsError(
+            'failed-precondition',
+            `Stage ${campaignStage.stage_number} not yet unlocked. ` +
+              `Complete stage ${campaignStage.stage_number - 1} first.`,
+          );
+        }
+      }
+
+      // Player A uses their active deck (same as solo)
+      const deckSnap = await db
+        .collection('player_active_decks').doc(uid)
+        .collection('slots').get();
+      if (deckSnap.size !== DECK_SIZE) {
+        throw new HttpsError(
+          'failed-precondition',
+          `Active deck must have exactly ${DECK_SIZE} cards (has ${deckSnap.size}).`,
+        );
+      }
+      playerACardIds = deckSnap.docs.map((d) => d.data().card_id as string);
+      playerACommanderId = profile.selected_commander as string;
+
+      // Player B uses stage's opponent configuration
+      playerBCardIds = [...campaignStage.opponent_deck_card_ids];
+      botCommanderId = campaignStage.opponent_commander_id;
     } else {
       // 2. Active deck (15 slots)
       const deckSnap = await db
@@ -89,6 +148,42 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
       playerBCardIds = await buildBotDeckCardIds(botFaction, db);
       playerACommanderId = profile.selected_commander as string;
       botCommanderId = await pickBotCommander(botFaction, db);
+    }
+
+    // Resolve boss rules (campaign-only). These shape match init: pre-activate
+    // bot commander, override debuff strength, grant extra round draws, and/or
+    // pre-place cards in a lane.
+    let bossDebuffStrength: number | undefined;
+    let bossExtraRoundDraw: number | undefined;
+    let bossCommanderPreActivated = false;
+    let bossCommanderActiveLane: Lane | null = null;
+    const preplacedCardsForB: Array<{ card_id: string; lane: Lane }> = [];
+
+    if (campaignStage?.boss_special_rules) {
+      const rules = campaignStage.boss_special_rules;
+      if (rules.commander_pre_activated) {
+        const cmdSnap = await db
+          .collection('commander_library')
+          .doc(botCommanderId)
+          .get();
+        if (cmdSnap.exists) {
+          const cmdData = cmdSnap.data()!;
+          bossCommanderActiveLane = cmdData.lane as Lane;
+          bossCommanderPreActivated = true;
+        }
+      }
+      if (rules.debuff_strength_override !== undefined) {
+        bossDebuffStrength = rules.debuff_strength_override;
+      }
+      if (rules.extra_round_draw !== undefined) {
+        bossExtraRoundDraw = rules.extra_round_draw;
+      }
+      if (rules.starting_lane_buff) {
+        const { lane, card_count } = rules.starting_lane_buff;
+        for (let i = 0; i < Math.min(card_count, playerBCardIds.length); i++) {
+          preplacedCardsForB.push({ card_id: playerBCardIds[i], lane });
+        }
+      }
     }
 
     // 4. base_power lookup for every distinct card_id used. card_library is
@@ -134,9 +229,21 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
         ...(mode === 'tutorial'
           ? { bot_scripted_actions: [...TUTORIAL_BOT_SCRIPTED_ACTIONS] }
           : {}),
+        ...(campaignStage ? { stage_id: campaignStage.stage_id } : {}),
+        ...(bossDebuffStrength !== undefined
+          ? { bot_debuff_strength: bossDebuffStrength }
+          : {}),
+        ...(bossExtraRoundDraw !== undefined
+          ? { bot_extra_round_draw: bossExtraRoundDraw }
+          : {}),
       },
       now,
     );
+
+    if (bossCommanderPreActivated) {
+      matchSession.player_b_commander_used = true;
+      matchSession.player_b_commander_active_lane = bossCommanderActiveLane;
+    }
 
     const boardStateDocs = buildBoardStateDocs({
       matchId,
@@ -144,6 +251,7 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
       playerBCardIds,
       cardLibraryMap,
       now,
+      ...(preplacedCardsForB.length > 0 ? { preplacedCardsForB } : {}),
     });
 
     // 6. Atomic write: 1 match_session + 30 live_board_state = 31 ops (well

@@ -41,7 +41,12 @@ export function computeCardPower(
 
   const debuffField = `${card.owner}_${card.location_state}_debuffed` as keyof MatchSession;
   if (session[debuffField] === true) {
-    power -= 2;
+    // Lane debuffs on player_a are applied by player_b (the bot) — strength
+    // can be increased by boss rules. Lane debuffs on player_b are applied by
+    // player_a (the human) — always default 2.
+    const debuffStrength =
+      card.owner === 'player_a' ? (session.bot_debuff_strength ?? 2) : 2;
+    power -= debuffStrength;
   }
 
   if (power < 0) power = 0;

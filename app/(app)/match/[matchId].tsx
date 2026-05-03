@@ -203,6 +203,24 @@ function MatchScreenInner() {
     if (anyInLane) showTooltip('first_card_played');
   }, [isTutorial, user, session, cards, showTooltip]);
 
+  // first_optimal_lane_bonus: fires once when the player plays a Unit in its
+  // optimal lane. Provider's shownTriggers Set guarantees once-per-match.
+  useEffect(() => {
+    if (!isTutorial || !user || !session) return;
+    const me: Side = user.uid === session.player_b_id ? 'player_b' : 'player_a';
+    for (const card of cards) {
+      if (card.owner !== me) continue;
+      const loc = card.location_state;
+      if (loc !== 'melee' && loc !== 'ranged' && loc !== 'siege') continue;
+      const entry = cardLibraryMap.get(card.card_id);
+      if (!entry || entry.card_type !== 'Unit') continue;
+      if (entry.optimal_lane && entry.optimal_lane.toLowerCase() === loc) {
+        showTooltip('first_optimal_lane_bonus');
+        break;
+      }
+    }
+  }, [isTutorial, user, session, cards, cardLibraryMap, showTooltip]);
+
   // first_round_ended: fires when round transitions past 1.
   useEffect(() => {
     if (!isTutorial || !session) return;
@@ -384,6 +402,7 @@ function MatchScreenInner() {
 
   async function handlePass() {
     if (!matchId) return;
+    if (isTutorial) showTooltip('first_pass');
     setActionLoading(true);
     setActionError(null);
     try {

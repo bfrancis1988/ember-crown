@@ -117,6 +117,17 @@ export default function TutorialScreen() {
             <Text style={styles.secondaryButtonText}>Skip Tutorial</Text>
           )}
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.howToPlayLink}
+          onPress={() => router.push('/how-to-play')}
+          disabled={isBusy}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.howToPlayLinkText}>
+            New to CCGs? Read the rules first.
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -178,6 +189,16 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: '#888',
     fontSize: 14,
+  },
+  howToPlayLink: {
+    marginTop: 24,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  howToPlayLinkText: {
+    color: '#666',
+    fontSize: 13,
+    fontStyle: 'italic',
   },
   disabled: {
     opacity: 0.5,

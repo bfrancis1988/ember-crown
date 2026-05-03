@@ -12,38 +12,71 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, { title: string; body: string }> =
   match_start: {
     title: 'Welcome to Ember Crown',
     body:
-      'Drag a card from your hand to a lane to play it. Each lane scores ' +
-      'independently. Win 2 of 3 lanes to win the round.',
+      'Each match has 3 rounds. Win 2 of 3 lanes per round to win that round. ' +
+      'Win 2 of 3 rounds to win the match.\n\n' +
+      'Drag a card from your hand to a lane to play it. Each card has Power, ' +
+      'and Lane Power = sum of all your cards there. Highest Power per lane ' +
+      'wins that lane.',
   },
   first_card_played: {
-    title: 'Lanes & Power',
+    title: 'Lane Power',
     body:
-      'Cards have a Power value. Lane Power = sum of all your cards there. ' +
-      'Highest power per lane wins that lane.',
+      'Lane Power tells the story of each lane.\n\n' +
+      'Cards have a base Power, but it can change:\n' +
+      '• +2 if played in their optimal lane (their preferred terrain)\n' +
+      '• +1 per card if your commander is active in this lane\n' +
+      '• −2 if the lane is cursed\n\n' +
+      'Watch the colors: green = buffed, red = debuffed, gold = default.',
+  },
+  first_optimal_lane_bonus: {
+    title: 'Optimal Lane',
+    body:
+      'That card just got +2 Power because you played it in its optimal lane.\n\n' +
+      'Every Unit has a preferred lane: Melee, Ranged, or Siege. Playing them ' +
+      'where they belong is one of your biggest power swings. Always check the ' +
+      "card's optimal lane before placing.",
   },
   first_round_ended: {
     title: 'Round End',
     body:
-      'When both players pass, the round ends. The board wipes and you draw ' +
-      '2 cards. Best of 3 rounds wins the match.',
+      'Round 1 over. Lanes you won earn Victory Points (VP). The board clears, ' +
+      'debuffs clear, and you draw 2 new cards.\n\n' +
+      "Best of 3 rounds. Plan ahead — cards you save now are cards you'll have " +
+      'for the next round.',
   },
   commander_activate_hint: {
     title: 'Your Commander',
     body:
-      'Tap your commander to activate them — they grant +1 power per card to ' +
-      'one specific lane for the rest of the match. Use it wisely.',
+      'Your commander has a passive ability and an active ability.\n\n' +
+      "The active ability buffs one specific lane (your commander's specialty) " +
+      'with +1 Power per card you have there. It lasts the rest of the match ' +
+      'and can only be used once.\n\n' +
+      'Time it carefully — activating early gives more value, but in the wrong ' +
+      "lane it's wasted.",
+  },
+  first_pass: {
+    title: 'Passing',
+    body:
+      "Passing means you're done for this round. Once both players pass, the " +
+      'round ends.\n\n' +
+      "Strategy: pass early if you've sealed a lead and want to save cards for " +
+      "next round. Pass late to maximize lanes you've won. Passing isn't giving " +
+      "up — it's a tactical choice.",
   },
   curse_hint: {
     title: 'Curses',
     body:
-      'Curses reduce the power of an enemy lane. Tap a curse, then tap the ' +
-      'enemy lane you want to weaken.',
+      'Curses are spell cards that weaken an enemy lane (−2 Power to all their ' +
+      'cards there) for the rest of the round.\n\n' +
+      "Use them on the enemy's strongest lane to flip the lead. The debuff " +
+      'clears at round end.',
   },
   cleanse_hint: {
     title: 'Cleanses',
     body:
-      'Cleanses remove debuffs from your own lanes. Tap a cleanse, then tap ' +
-      'one of your debuffed lanes.',
+      'Cleanses remove a curse from one of your lanes — restoring your Power.\n\n' +
+      "Save them for when an enemy curse is hurting you. Don't waste them on " +
+      'undebuffed lanes.',
   },
   tutorial_complete: {
     title: 'Tutorial Complete',

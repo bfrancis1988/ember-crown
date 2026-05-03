@@ -51,6 +51,10 @@ export type MatchSession = {
   bot_scripted_actions?: ScriptedAction[];
   bot_scripted_action_index?: number;
 
+  stage_id?: string;
+  bot_debuff_strength: number;
+  bot_extra_round_draw: number;
+
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -61,10 +65,19 @@ export type MatchSessionInit = Pick<MatchSession,
   'active_turn' | 'bot_difficulty' | 'mode'
 > & {
   bot_scripted_actions?: ScriptedAction[];
+  stage_id?: string;
+  bot_debuff_strength?: number;
+  bot_extra_round_draw?: number;
 };
 
 export function makeInitialMatchSession(init: MatchSessionInit, now: Timestamp): MatchSession {
-  const { bot_scripted_actions, ...rest } = init;
+  const {
+    bot_scripted_actions,
+    stage_id,
+    bot_debuff_strength,
+    bot_extra_round_draw,
+    ...rest
+  } = init;
   return {
     ...rest,
     status: 'in_progress',
@@ -89,6 +102,9 @@ export function makeInitialMatchSession(init: MatchSessionInit, now: Timestamp):
       bot_scripted_actions,
       bot_scripted_action_index: 0,
     } : {}),
+    ...(stage_id !== undefined ? { stage_id } : {}),
+    bot_debuff_strength: bot_debuff_strength ?? 2,
+    bot_extra_round_draw: bot_extra_round_draw ?? 0,
     created_at: now,
     updated_at: now,
   };

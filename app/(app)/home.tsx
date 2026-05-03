@@ -176,6 +176,15 @@ export default function HomeScreen() {
                 <PlaySoloMatchButton />
                 <TouchableOpacity
                   style={styles.guildHallButton}
+                  onPress={() => router.push('/campaign')}
+                >
+                  <Text style={styles.guildHallButtonText}>🗺️ Campaign</Text>
+                  <Text style={styles.guildHallButtonSubtitle}>
+                    Defeat factions to unlock the next tier
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.guildHallButton}
                   onPress={() => router.push('/guild-hall')}
                 >
                   <Text style={styles.guildHallButtonText}>🛡 Guild Hall</Text>
@@ -200,6 +209,13 @@ export default function HomeScreen() {
                   <Text style={styles.guildHallButtonSubtitle}>
                     Spend dust on specific cards
                   </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.howToPlayLink}
+                  onPress={() => router.push('/how-to-play')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.howToPlayLinkText}>❓ How to Play</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -333,5 +349,14 @@ const styles = StyleSheet.create({
   profileLinkText: {
     color: '#888',
     fontSize: 14,
+  },
+  howToPlayLink: {
+    marginTop: 18,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  howToPlayLinkText: {
+    color: '#666',
+    fontSize: 13,
   },
 });

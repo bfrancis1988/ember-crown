@@ -3,8 +3,9 @@
 
 import type { Firestore, Timestamp } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
-import { STARTING_HAND_SIZE, DECK_SIZE } from '../lib/matchConstants';
-import type { LiveBoardState } from '../types/board';
+import { STARTING_HAND_SIZE, DECK_SIZE, type Lane } from '../lib/matchConstants';
+import type { LiveBoardState, LocationState } from '../types/board';
+import { laneToLocationState } from '../types/board';
 import type { Side } from '../types/match';
 
 // Server writes use FieldValue.serverTimestamp(); reads always come back as
@@ -71,6 +72,13 @@ export async function pickBotCommander(
 /**
  * Build 30 LiveBoardState docs (15 per side). The first STARTING_HAND_SIZE
  * cards in each ordered list go to 'hand'; the rest go to 'deck'.
+ *
+ * Optional preplacedCardsForB pre-places N cards from the bot's deck into a
+ * specified lane (used by boss stages with starting_lane_buff). For each
+ * { card_id, lane } entry, the first un-consumed instance of that card_id in
+ * playerBCardIds is set to that lane's location_state. Remaining cards are
+ * dealt normally — first STARTING_HAND_SIZE non-preplaced go to 'hand', rest
+ * to 'deck'. So a 15-card deck with 2 preplaced becomes 7 hand + 6 deck + 2 lane.
  */
 export function buildBoardStateDocs(args: {
   matchId: string;
@@ -78,8 +86,16 @@ export function buildBoardStateDocs(args: {
   playerBCardIds: string[];
   cardLibraryMap: Map<string, { base_power: number }>;
   now: WriteTimestamp;
+  preplacedCardsForB?: Array<{ card_id: string; lane: Lane }>;
 }): LiveBoardState[] {
-  const { matchId, playerACardIds, playerBCardIds, cardLibraryMap, now } = args;
+  const {
+    matchId,
+    playerACardIds,
+    playerBCardIds,
+    cardLibraryMap,
+    now,
+    preplacedCardsForB,
+  } = args;
 
   // Player deck must always be exactly DECK_SIZE.
   // Bot deck must be at least STARTING_HAND_SIZE (so it can deal a hand);
@@ -97,23 +113,58 @@ export function buildBoardStateDocs(args: {
     );
   }
 
-  const buildSide = (cardIds: string[], owner: Side): LiveBoardState[] =>
-    cardIds.map((cardId, idx) => {
+  const buildSide = (
+    cardIds: string[],
+    owner: Side,
+    preplacements: Array<{ card_id: string; lane: Lane }> | null,
+  ): LiveBoardState[] => {
+    const preplaceLaneByIndex: Array<Lane | null> = new Array(cardIds.length).fill(null);
+    if (preplacements && preplacements.length > 0) {
+      const consumed = new Array<boolean>(cardIds.length).fill(false);
+      for (const pre of preplacements) {
+        const idx = cardIds.findIndex(
+          (id, i) => !consumed[i] && id === pre.card_id,
+        );
+        if (idx === -1) {
+          throw new Error(
+            `Preplaced card ${pre.card_id} not found in ${owner} deck (lane ${pre.lane})`,
+          );
+        }
+        consumed[idx] = true;
+        preplaceLaneByIndex[idx] = pre.lane;
+      }
+    }
+    let dealtHand = 0;
+    return cardIds.map((cardId, idx) => {
       const lib = cardLibraryMap.get(cardId);
       if (!lib) throw new Error(`card_library lookup missing for ${cardId}`);
+      const lane = preplaceLaneByIndex[idx];
+      let location_state: LocationState;
+      if (lane) {
+        location_state = laneToLocationState(lane);
+      } else if (dealtHand < STARTING_HAND_SIZE) {
+        location_state = 'hand';
+        dealtHand++;
+      } else {
+        location_state = 'deck';
+      }
       return {
         instance_id: crypto.randomUUID(),
         match_id: matchId,
         owner,
         card_id: cardId,
         current_power: lib.base_power,
-        location_state: idx < STARTING_HAND_SIZE ? 'hand' : 'deck',
+        location_state,
         status_effect: null,
         created_at: now as Timestamp,
       };
     });
+  };
 
-  return [...buildSide(playerACardIds, 'player_a'), ...buildSide(playerBCardIds, 'player_b')];
+  return [
+    ...buildSide(playerACardIds, 'player_a', null),
+    ...buildSide(playerBCardIds, 'player_b', preplacedCardsForB ?? null),
+  ];
 }
 
 /**

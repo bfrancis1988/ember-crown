@@ -13,8 +13,10 @@ import React, {
 export type TooltipTrigger =
   | 'match_start'
   | 'first_card_played'
+  | 'first_optimal_lane_bonus'
   | 'first_round_ended'
   | 'commander_activate_hint'
+  | 'first_pass'
   | 'curse_hint'
   | 'cleanse_hint'
   | 'tutorial_complete';

@@ -113,6 +113,25 @@ export default function CommanderPickerScreen() {
         {factionMeta.name} stands ready. Pick your leader.
       </Text>
 
+      <View style={styles.explainerCard}>
+        <Text style={styles.explainerHeader}>About your commander</Text>
+        <Text style={styles.explainerBody}>
+          Your commander accompanies your deck into every match.
+        </Text>
+        <Text style={styles.explainerBullet}>
+          • Each commander specializes in one lane (Melee, Ranged, or Siege)
+        </Text>
+        <Text style={styles.explainerBullet}>
+          • Their active ability buffs that lane with +1 Power per card, once per match
+        </Text>
+        <Text style={styles.explainerBullet}>
+          • They have a passive that's always on
+        </Text>
+        <Text style={styles.explainerFooter}>
+          Choose your commander based on the lane you want to dominate.
+        </Text>
+      </View>
+
       {commanders.map((commander) => {
         const isCommitting = committingId === commander.commander_id;
         const isAnyCommitting = committingId !== null;
@@ -187,6 +206,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 24,
+  },
+  explainerCard: {
+    backgroundColor: '#161616',
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#2a2a2a',
+    padding: 14,
+    marginBottom: 24,
+  },
+  explainerHeader: {
+    color: '#d4a04a',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  explainerBody: {
+    color: '#bbb',
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 8,
+  },
+  explainerBullet: {
+    color: '#9a9a9a',
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 4,
+    paddingLeft: 4,
+  },
+  explainerFooter: {
+    color: '#bbb',
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   card: {
     backgroundColor: '#1a1a1a',

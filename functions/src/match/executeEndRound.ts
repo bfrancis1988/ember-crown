@@ -135,7 +135,12 @@ export async function executeEndRoundInternal(
         const j = Math.floor(Math.random() * (i + 1));
         [deckArr[i], deckArr[j]] = [deckArr[j], deckArr[i]];
       }
-      const drawCount = Math.min(END_ROUND_DRAW_COUNT, deckArr.length);
+      // Bot can draw extra under boss rules; default extra is 0.
+      const baseDraw =
+        side === 'player_b'
+          ? END_ROUND_DRAW_COUNT + (session.bot_extra_round_draw ?? 0)
+          : END_ROUND_DRAW_COUNT;
+      const drawCount = Math.min(baseDraw, deckArr.length);
       for (let i = 0; i < drawCount; i++) {
         batch.update(deckArr[i].ref, { location_state: 'hand' });
       }
