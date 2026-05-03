@@ -5,8 +5,9 @@
 // We accept the resolved CommanderEntry from the parent rather than fetching
 // inside, since the screen already loads commander_library once on mount.
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import type { CommanderEntry } from '../../types/commander';
 import type { Side } from '../../types/match';
 import type { Lane } from '../../lib/matchConstants';
@@ -39,6 +40,10 @@ export function CommanderTile({
   const isMe = thisSide === viewerSide;
   const canActivate = isMe && !usedFlag && onActivate !== undefined;
 
+  const [imageError, setImageError] = useState(false);
+  const showImage =
+    !!commander?.image_url && commander.image_url.length > 0 && !imageError;
+
   const containerStyle = [
     styles.tile,
     activeLane ? styles.tileActive : null,
@@ -49,7 +54,17 @@ export function CommanderTile({
   const Inner = (
     <>
       <View style={[styles.art, { backgroundColor: factionColor }]}>
-        <Text style={styles.artGlyph}>♛</Text>
+        {showImage ? (
+          <ExpoImage
+            source={{ uri: commander!.image_url! }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            transition={200}
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <Text style={styles.artGlyph}>♛</Text>
+        )}
       </View>
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>
@@ -120,6 +135,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 6,
     marginRight: 10,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
   },

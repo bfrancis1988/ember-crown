@@ -2,8 +2,9 @@
 // Compact card preview tile. Reused by FactionPreviewModal in Phase 2 and the
 // deck builder in Phase 4. Pure presentational — no taps, no state.
 
-import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import type { CardLibraryEntry, Rarity } from '../types/card';
 
 type Props = {
@@ -21,16 +22,22 @@ const RARITY_BORDER: Record<Rarity, string> = {
 
 export function MiniCard({ card, factionColor }: Props) {
   const borderColor = RARITY_BORDER[card.rarity] ?? RARITY_BORDER.Common;
-  const hasImage = typeof card.image_url === 'string' && card.image_url.length > 0;
+  const [imageError, setImageError] = useState(false);
+  const hasImage =
+    typeof card.image_url === 'string' &&
+    card.image_url.length > 0 &&
+    !imageError;
 
   return (
     <View style={[styles.card, { borderColor }]}>
       <View style={[styles.art, { backgroundColor: factionColor }]}>
         {hasImage && (
-          <Image
+          <ExpoImage
             source={{ uri: card.image_url }}
             style={StyleSheet.absoluteFill}
-            resizeMode="cover"
+            contentFit="cover"
+            transition={200}
+            onError={() => setImageError(true)}
           />
         )}
         <View style={[styles.rarityBadge, { backgroundColor: borderColor }]}>

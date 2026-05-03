@@ -17,4 +17,5 @@ export type CommanderEntry = {
   lane: Lane;
   passive: CommanderAbility;
   active: CommanderAbility;
+  image_url?: string;
 };

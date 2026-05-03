@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { FACTIONS, type FactionId } from '../../lib/factions';
@@ -21,6 +22,30 @@ type Props = {
   selectedCommanderId: string | null;
   onSelectCommander: (commanderId: string) => void;
 };
+
+function CommanderArtSquare({
+  imageUrl,
+  factionColor,
+}: {
+  imageUrl: string | undefined;
+  factionColor: string;
+}) {
+  const [error, setError] = useState(false);
+  const showImage = !!imageUrl && !error;
+  return (
+    <View style={[styles.art, { backgroundColor: factionColor }]}>
+      {showImage && (
+        <ExpoImage
+          source={{ uri: imageUrl! }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          transition={200}
+          onError={() => setError(true)}
+        />
+      )}
+    </View>
+  );
+}
 
 export function CommanderPicker({
   factionId,
@@ -80,7 +105,10 @@ export function CommanderPicker({
                   !selected && styles.dim,
                 ]}
               >
-                <View style={[styles.art, { backgroundColor: factionColor }]} />
+                <CommanderArtSquare
+                  imageUrl={c.image_url}
+                  factionColor={factionColor}
+                />
                 <Text style={styles.name} numberOfLines={1}>
                   {c.name}
                 </Text>
@@ -134,6 +162,7 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     borderRadius: 4,
+    overflow: 'hidden',
     marginBottom: 6,
   },
   name: {

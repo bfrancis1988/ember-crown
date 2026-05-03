@@ -2,7 +2,7 @@
 // Phase 4.5: full-screen sliding modal showing one card's full metadata.
 // Read-only — no summon/purchase CTA in v1 (Phase 6 may revisit).
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -13,6 +13,7 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CardLibraryEntry, Rarity } from '../../types/card';
 import { CRAFT_DUST_COSTS, MAX_COPIES_PER_CARD } from '../../lib/banners';
@@ -53,6 +54,17 @@ export function CardDetailModal({
   const visible = card !== null;
   const screenWidth = Dimensions.get('window').width;
   const cardWidth = screenWidth * 0.7;
+
+  const [imageError, setImageError] = useState(false);
+  // Reset error flag whenever the modal swaps to a different card.
+  useEffect(() => {
+    setImageError(false);
+  }, [card?.card_id]);
+  const showImage =
+    !!card &&
+    typeof card.image_url === 'string' &&
+    card.image_url.length > 0 &&
+    !imageError;
 
   const isCraftMode = mode === 'craft';
   // In craft mode the visual is never "locked" by ownership-zero — every
@@ -102,6 +114,15 @@ export function CardDetailModal({
                     },
                   ]}
                 >
+                  {showImage && (
+                    <ExpoImage
+                      source={{ uri: card.image_url }}
+                      style={StyleSheet.absoluteFill}
+                      contentFit="cover"
+                      transition={200}
+                      onError={() => setImageError(true)}
+                    />
+                  )}
                   <View
                     style={[
                       styles.rarityBadge,
@@ -158,7 +179,6 @@ export function CardDetailModal({
                   )}
                 </View>
 
-                {/* Phase 8 will populate this slot with flavor text + art notes. */}
                 <View style={styles.flavorPlaceholder}>
                   <Text style={styles.flavorText}>
                     {card.faction} — {card.rarity}.

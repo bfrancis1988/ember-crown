@@ -55,3 +55,6 @@ yarn-error.*
 # Cloud Functions build output
 functions/lib/
 functions/node_modules/
+
+# Asset source files (uploaded to Firebase Storage via scripts/upload-assets.ts)
+/assets/

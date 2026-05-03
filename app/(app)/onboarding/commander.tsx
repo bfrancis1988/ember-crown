@@ -12,12 +12,41 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../src/lib/firebase';
 import { usePlayerProfile } from '../../../src/hooks/usePlayerProfile';
 import { FACTIONS } from '../../../src/lib/factions';
 import type { CommanderEntry } from '../../../src/types/commander';
+
+function CommanderArt({
+  imageUrl,
+  fallbackName,
+  factionColor,
+}: {
+  imageUrl: string | undefined;
+  fallbackName: string;
+  factionColor: string;
+}) {
+  const [error, setError] = useState(false);
+  const showImage = !!imageUrl && !error;
+  return (
+    <View style={[styles.art, { backgroundColor: factionColor }]}>
+      {showImage ? (
+        <ExpoImage
+          source={{ uri: imageUrl }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          transition={200}
+          onError={() => setError(true)}
+        />
+      ) : (
+        <Text style={styles.artText}>{fallbackName}</Text>
+      )}
+    </View>
+  );
+}
 
 export default function CommanderPickerScreen() {
   const router = useRouter();
@@ -137,9 +166,11 @@ export default function CommanderPickerScreen() {
         const isAnyCommitting = committingId !== null;
         return (
           <View key={commander.commander_id} style={styles.card}>
-            <View style={[styles.art, { backgroundColor: factionMeta.color }]}>
-              <Text style={styles.artText}>{commander.name}</Text>
-            </View>
+            <CommanderArt
+              imageUrl={commander.image_url}
+              fallbackName={commander.name}
+              factionColor={factionMeta.color}
+            />
 
             <View style={styles.cardBody}>
               <View style={styles.nameRow}>

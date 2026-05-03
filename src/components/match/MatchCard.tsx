@@ -5,8 +5,9 @@
 // Intentionally NOT shared with MiniCard from Phase 2 — that one renders the
 // static library entry; this one renders a live in-match instance.
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import type { CardLibraryEntry, Rarity } from '../../types/card';
 import type { LiveBoardState } from '../../types/board';
 
@@ -36,6 +37,12 @@ export function MatchCard({
   onPress,
 }: Props) {
   const borderColor = RARITY_BORDER[cardLibraryEntry.rarity] ?? RARITY_BORDER.Common;
+  const [imageError, setImageError] = useState(false);
+  const showImage =
+    !isFaceDown &&
+    typeof cardLibraryEntry.image_url === 'string' &&
+    cardLibraryEntry.image_url.length > 0 &&
+    !imageError;
 
   if (isFaceDown) {
     return (
@@ -59,6 +66,15 @@ export function MatchCard({
 
   const Inner = (
     <View style={[styles.art, { backgroundColor: factionColor }]}>
+      {showImage && (
+        <ExpoImage
+          source={{ uri: cardLibraryEntry.image_url }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          transition={200}
+          onError={() => setImageError(true)}
+        />
+      )}
       {/* Status effect badge — top-left */}
       {card.status_effect ? (
         <View style={styles.statusBadge}>

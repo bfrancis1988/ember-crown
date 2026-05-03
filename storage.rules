@@ -1,0 +1,23 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Card art — publicly readable so the client can load without auth tokens.
+    // Writes are admin-only (the upload script uses the Admin SDK, which
+    // bypasses these rules).
+    match /cards/{cardId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Commander art — same policy as cards.
+    match /commanders/{commanderId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Default deny everything else.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
