@@ -32,3 +32,13 @@ export type ClaimMatchRewardsResult = {
   shards_earned: number;
   is_victory: boolean;
 };
+
+export type RecordCampaignWinResult = {
+  success: true;
+  is_first_win: boolean;
+  coins_earned: number;
+  shards_earned: number;
+  keys_earned: number;
+  factions_unlocked: string[];
+  next_stage_id: string | null;
+};

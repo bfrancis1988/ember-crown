@@ -36,7 +36,10 @@ import type { CardLibraryEntry } from '../../../src/types/card';
 import type { CommanderEntry } from '../../../src/types/commander';
 import type { LiveBoardState } from '../../../src/types/board';
 import type { MatchSession, Side } from '../../../src/types/match';
-import type { ClaimMatchRewardsResult } from '../../../src/types/matchActions';
+import type {
+  ClaimMatchRewardsResult,
+  RecordCampaignWinResult,
+} from '../../../src/types/matchActions';
 
 // Mirrored lane order: top-down on each side. The "front line" sits between
 // each side's Melee row, so opponent's Melee is across from player's Melee.
@@ -450,6 +453,16 @@ function MatchScreenInner() {
     return result.data;
   }
 
+  async function handleClaimCampaign(): Promise<RecordCampaignWinResult> {
+    if (!matchId) throw new Error('Missing matchId');
+    const fn = httpsCallable<{ match_id: string }, RecordCampaignWinResult>(
+      functions,
+      'recordCampaignWin',
+    );
+    const result = await fn({ match_id: matchId });
+    return result.data;
+  }
+
   function handleRetreat() {
     Alert.alert(
       'Retreat?',
@@ -609,7 +622,9 @@ function MatchScreenInner() {
           viewerSide={viewerSide}
           onClaim={handleClaim}
           onCompleteTutorial={handleCompleteTutorial}
+          onClaimCampaign={handleClaimCampaign}
           onReturnHome={() => router.replace('/home')}
+          onReturnToCampaign={() => router.replace('/campaign')}
         />
       ) : null}
     </View>

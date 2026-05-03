@@ -12,6 +12,7 @@ export { activateCommander } from './match/activateCommander';
 export { onBothPlayersPassed } from './match/onBothPlayersPassed';
 export { claimMatchRewards } from './match/claimMatchRewards';
 export { cleanupStaleMatches } from './match/cleanupStaleMatches';
+export { recordCampaignWin } from './match/recordCampaignWin';
 export { completeOnboardingFn } from './onboarding/completeOnboardingFn';
 export { completeTutorial } from './onboarding/completeTutorial';
 export { summonCard } from './economy/summonCard';
