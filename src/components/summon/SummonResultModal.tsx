@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CardLibraryEntry } from '../../types/card';
 import type { Rarity } from '../../lib/banners';
@@ -131,6 +132,8 @@ export function SummonResultModal({
 
   const cardName = cardLibraryEntry?.card_name ?? result.card_id;
   const basePower = cardLibraryEntry?.base_power ?? '?';
+  const imageUrl = cardLibraryEntry?.image_url ?? '';
+  const hasImage = imageUrl.length > 0;
 
   return (
     <Modal
@@ -181,6 +184,14 @@ export function SummonResultModal({
                       },
                     ]}
                   >
+                    {hasImage && (
+                      <ExpoImage
+                        source={{ uri: imageUrl }}
+                        style={StyleSheet.absoluteFill}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                    )}
                     <View
                       style={[
                         styles.rarityBadge,

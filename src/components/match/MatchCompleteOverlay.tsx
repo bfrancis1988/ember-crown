@@ -9,9 +9,11 @@
 // onClaim / onCompleteTutorial / onClaimCampaign each return the callable's
 // typed result so we can render the actual numbers.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -66,6 +68,67 @@ export function MatchCompleteOverlay({
 
   const isTutorial = session.mode === 'tutorial';
   const isCampaign = session.mode === 'campaign';
+
+  // Entrance animations: header scales in, rewards card fades in shortly
+  // after the header lands, and the CTA pulses gently on a continuous loop.
+  // Total entrance ≈ 600ms (200ms header opacity + 300ms scale + 400ms
+  // delayed rewards fade overlap). Pulse is ambient — it stops when the
+  // overlay unmounts because the loop is tied to the animated value's
+  // lifetime.
+  const headerScale = useRef(new Animated.Value(0.7)).current;
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const rewardsOpacity = useRef(new Animated.Value(0)).current;
+  const ctaPulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(headerScale, {
+        toValue: 1,
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(headerOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(rewardsOpacity, {
+        toValue: 1,
+        duration: 200,
+        delay: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(ctaPulse, {
+          toValue: 1.05,
+          duration: 750,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(ctaPulse, {
+          toValue: 1,
+          duration: 750,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => {
+      pulse.stop();
+    };
+  }, [headerScale, headerOpacity, rewardsOpacity, ctaPulse]);
+
+  const headerAnimStyle = {
+    opacity: headerOpacity,
+    transform: [{ scale: headerScale }],
+  };
+  const rewardsAnimStyle = { opacity: rewardsOpacity };
+  const ctaAnimStyle = { transform: [{ scale: ctaPulse }] };
 
   // Load stage data for campaign matches (one-shot — stages are static).
   useEffect(() => {
@@ -153,7 +216,9 @@ export function MatchCompleteOverlay({
         <View style={styles.backdrop}>
           <View style={styles.modal}>
             <Text style={styles.header}>Match Complete</Text>
-            <Text style={[styles.result, { color: '#e05a5a' }]}>DEFEAT</Text>
+            <Animated.Text style={[styles.result, { color: '#e05a5a' }, headerAnimStyle]}>
+              DEFEAT
+            </Animated.Text>
             <Text style={styles.stageTitle}>{stageHeader}</Text>
             {stage ? (
               <Text style={styles.stageSubtitle}>
@@ -163,9 +228,11 @@ export function MatchCompleteOverlay({
             <Text style={styles.score}>
               {myWins} <Text style={styles.scoreDash}>—</Text> {oppWins}
             </Text>
-            <TouchableOpacity style={styles.primaryButton} onPress={handleReturnToCampaign}>
-              <Text style={styles.primaryButtonText}>Return to Campaign</Text>
-            </TouchableOpacity>
+            <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
+              <TouchableOpacity style={styles.primaryButton} onPress={handleReturnToCampaign}>
+                <Text style={styles.primaryButtonText}>Return to Campaign</Text>
+              </TouchableOpacity>
+            </Animated.View>
           </View>
         </View>
       );
@@ -182,13 +249,15 @@ export function MatchCompleteOverlay({
         <View style={styles.backdrop}>
           <View style={styles.modal}>
             <Text style={styles.header}>Match Complete</Text>
-            <Text style={[styles.result, { color: '#5cd35c' }]}>VICTORY</Text>
+            <Animated.Text style={[styles.result, { color: '#5cd35c' }, headerAnimStyle]}>
+              VICTORY
+            </Animated.Text>
             <Text style={styles.stageTitle}>{stageHeader} cleared</Text>
             <Text style={styles.score}>
               {myWins} <Text style={styles.scoreDash}>—</Text> {oppWins}
             </Text>
             {stage ? (
-              <View style={styles.rewards}>
+              <Animated.View style={[styles.rewards, rewardsAnimStyle]}>
                 <Text style={styles.rewardsHeader}>Rewards (preview)</Text>
                 <Text style={styles.rewardLine}>
                   <Text style={styles.rewardLabel}>Coins  </Text>
@@ -204,20 +273,22 @@ export function MatchCompleteOverlay({
                     <Text style={styles.rewardValue}>+{previewKeys}</Text>
                   </Text>
                 ) : null}
-              </View>
+              </Animated.View>
             ) : null}
             {error ? <Text style={styles.error}>{error}</Text> : null}
-            <TouchableOpacity
-              style={[styles.primaryButton, isClaiming && styles.disabled]}
-              onPress={handleCampaignClaim}
-              disabled={isClaiming}
-            >
-              {isClaiming ? (
-                <ActivityIndicator color="#111" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Claim Rewards</Text>
-              )}
-            </TouchableOpacity>
+            <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
+              <TouchableOpacity
+                style={[styles.primaryButton, isClaiming && styles.disabled]}
+                onPress={handleCampaignClaim}
+                disabled={isClaiming}
+              >
+                {isClaiming ? (
+                  <ActivityIndicator color="#111" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Claim Rewards</Text>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
           </View>
         </View>
       );
@@ -231,14 +302,18 @@ export function MatchCompleteOverlay({
         <View style={styles.backdrop}>
           <View style={styles.modal}>
             <Text style={styles.header}>Match Complete</Text>
-            <Text style={[styles.result, { color: '#d4a04a' }]}>VICTORY</Text>
+            <Animated.Text style={[styles.result, { color: '#d4a04a' }, headerAnimStyle]}>
+              VICTORY
+            </Animated.Text>
             <Text style={styles.stageTitle}>{stageHeader}</Text>
             <Text style={styles.stageSubtitle}>
               Rewards already claimed.
             </Text>
-            <TouchableOpacity style={styles.primaryButton} onPress={handleReturnToCampaign}>
-              <Text style={styles.primaryButtonText}>Return to Campaign</Text>
-            </TouchableOpacity>
+            <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
+              <TouchableOpacity style={styles.primaryButton} onPress={handleReturnToCampaign}>
+                <Text style={styles.primaryButtonText}>Return to Campaign</Text>
+              </TouchableOpacity>
+            </Animated.View>
           </View>
         </View>
       );
@@ -270,9 +345,11 @@ export function MatchCompleteOverlay({
       <View style={styles.backdrop}>
         <View style={styles.modal}>
           <Text style={styles.header}>Match Complete</Text>
-          <Text style={[styles.result, { color: headerColor }]}>{headerText}</Text>
+          <Animated.Text style={[styles.result, { color: headerColor }, headerAnimStyle]}>
+            {headerText}
+          </Animated.Text>
           <Text style={styles.stageTitle}>{stageHeader}</Text>
-          <View style={styles.rewards}>
+          <Animated.View style={[styles.rewards, rewardsAnimStyle]}>
             <Text style={styles.rewardLine}>
               <Text style={styles.rewardLabel}>Coins  </Text>
               <Text style={styles.rewardValue}>+{c}</Text>
@@ -287,10 +364,12 @@ export function MatchCompleteOverlay({
                 <Text style={styles.rewardValue}>+{k}</Text>
               </Text>
             ) : null}
-          </View>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleReturnToCampaign}>
-            <Text style={styles.primaryButtonText}>Return to Campaign</Text>
-          </TouchableOpacity>
+          </Animated.View>
+          <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleReturnToCampaign}>
+              <Text style={styles.primaryButtonText}>Return to Campaign</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </View>
     );
@@ -315,12 +394,16 @@ export function MatchCompleteOverlay({
         <View style={styles.backdrop}>
           <View style={styles.modal}>
             <Text style={styles.header}>Match Complete</Text>
-            <Text style={[styles.result, { color: '#d4a04a' }]}>{soloResultText}</Text>
+            <Animated.Text style={[styles.result, { color: '#d4a04a' }, headerAnimStyle]}>
+              {soloResultText}
+            </Animated.Text>
             <Text style={styles.stageSubtitle}>Solo Match</Text>
             <Text style={styles.stageSubtitle}>Rewards already claimed.</Text>
-            <TouchableOpacity style={styles.primaryButton} onPress={onReturnHome}>
-              <Text style={styles.primaryButtonText}>Return Home</Text>
-            </TouchableOpacity>
+            <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
+              <TouchableOpacity style={styles.primaryButton} onPress={onReturnHome}>
+                <Text style={styles.primaryButtonText}>Return Home</Text>
+              </TouchableOpacity>
+            </Animated.View>
           </View>
         </View>
       );
@@ -333,12 +416,14 @@ export function MatchCompleteOverlay({
         <View style={styles.backdrop}>
           <View style={styles.modal}>
             <Text style={styles.header}>Match Complete</Text>
-            <Text style={[styles.result, { color: soloResultColor }]}>{soloResultText}</Text>
+            <Animated.Text style={[styles.result, { color: soloResultColor }, headerAnimStyle]}>
+              {soloResultText}
+            </Animated.Text>
             <Text style={styles.stageSubtitle}>Solo Match</Text>
             <Text style={styles.score}>
               {myWins} <Text style={styles.scoreDash}>—</Text> {oppWins}
             </Text>
-            <View style={styles.rewards}>
+            <Animated.View style={[styles.rewards, rewardsAnimStyle]}>
               <Text style={styles.rewardsHeader}>Rewards</Text>
               <Text style={styles.rewardLine}>
                 <Text style={styles.rewardLabel}>Coins  </Text>
@@ -348,10 +433,12 @@ export function MatchCompleteOverlay({
                 <Text style={styles.rewardLabel}>Shards </Text>
                 <Text style={styles.rewardValue}>+{claimResult.shards_earned}</Text>
               </Text>
-            </View>
-            <TouchableOpacity style={styles.primaryButton} onPress={onReturnHome}>
-              <Text style={styles.primaryButtonText}>Return Home</Text>
-            </TouchableOpacity>
+            </Animated.View>
+            <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
+              <TouchableOpacity style={styles.primaryButton} onPress={onReturnHome}>
+                <Text style={styles.primaryButtonText}>Return Home</Text>
+              </TouchableOpacity>
+            </Animated.View>
           </View>
         </View>
       );
@@ -362,27 +449,31 @@ export function MatchCompleteOverlay({
       <View style={styles.backdrop}>
         <View style={styles.modal}>
           <Text style={styles.header}>Match Complete</Text>
-          <Text style={[styles.result, { color: soloResultColor }]}>{soloResultText}</Text>
+          <Animated.Text style={[styles.result, { color: soloResultColor }, headerAnimStyle]}>
+            {soloResultText}
+          </Animated.Text>
           <Text style={styles.stageSubtitle}>Solo Match</Text>
           <Text style={styles.score}>
             {myWins} <Text style={styles.scoreDash}>—</Text> {oppWins}
           </Text>
-          <View style={styles.rewards}>
+          <Animated.View style={[styles.rewards, rewardsAnimStyle]}>
             <Text style={styles.rewardsHeader}>Rewards (preview)</Text>
             <Text style={styles.rewardsHint}>Tap Claim Rewards to collect.</Text>
-          </View>
+          </Animated.View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <TouchableOpacity
-            style={[styles.primaryButton, isClaiming && styles.disabled]}
-            onPress={handleSoloClaim}
-            disabled={isClaiming}
-          >
-            {isClaiming ? (
-              <ActivityIndicator color="#111" />
-            ) : (
-              <Text style={styles.primaryButtonText}>Claim Rewards</Text>
-            )}
-          </TouchableOpacity>
+          <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
+            <TouchableOpacity
+              style={[styles.primaryButton, isClaiming && styles.disabled]}
+              onPress={handleSoloClaim}
+              disabled={isClaiming}
+            >
+              {isClaiming ? (
+                <ActivityIndicator color="#111" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Claim Rewards</Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </View>
     );
@@ -406,10 +497,14 @@ export function MatchCompleteOverlay({
       <View style={styles.modal}>
         <Text style={styles.header}>{headerLabel}</Text>
         {isTutorial ? (
-          <Text style={[styles.result, { color: resultColor }]}>WELL DONE</Text>
+          <Animated.Text style={[styles.result, { color: resultColor }, headerAnimStyle]}>
+            WELL DONE
+          </Animated.Text>
         ) : (
           <>
-            <Text style={[styles.result, { color: resultColor }]}>{result}</Text>
+            <Animated.Text style={[styles.result, { color: resultColor }, headerAnimStyle]}>
+              {result}
+            </Animated.Text>
             <Text style={styles.score}>
               {myWins} <Text style={styles.scoreDash}>—</Text> {oppWins}
             </Text>
@@ -423,7 +518,7 @@ export function MatchCompleteOverlay({
 
         {hasClaimed && claimResult ? (
           <>
-            <View style={styles.rewards}>
+            <Animated.View style={[styles.rewards, rewardsAnimStyle]}>
               <Text style={styles.rewardLine}>
                 <Text style={styles.rewardLabel}>Coins  </Text>
                 <Text style={styles.rewardValue}>+{claimResult.coins_earned}</Text>
@@ -432,31 +527,35 @@ export function MatchCompleteOverlay({
                 <Text style={styles.rewardLabel}>Shards </Text>
                 <Text style={styles.rewardValue}>+{claimResult.shards_earned}</Text>
               </Text>
-            </View>
-            <TouchableOpacity style={styles.primaryButton} onPress={onReturnHome}>
-              <Text style={styles.primaryButtonText}>
-                {isTutorial ? 'Continue to Home' : 'Return to Home'}
-              </Text>
-            </TouchableOpacity>
+            </Animated.View>
+            <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
+              <TouchableOpacity style={styles.primaryButton} onPress={onReturnHome}>
+                <Text style={styles.primaryButtonText}>
+                  {isTutorial ? 'Continue to Home' : 'Return to Home'}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
           </>
         ) : (
           <>
             {error ? <Text style={styles.error}>{error}</Text> : null}
-            <TouchableOpacity
-              style={[styles.primaryButton, isClaiming && styles.disabled]}
-              onPress={handleClaimTap}
-              disabled={isClaiming}
-            >
-              {isClaiming ? (
-                <ActivityIndicator color="#111" />
-              ) : (
-                <Text style={styles.primaryButtonText}>
-                  {isTutorial
-                    ? 'Complete Tutorial'
-                    : alreadyClaimedFlag ? 'Continue' : 'Claim Rewards'}
-                </Text>
-              )}
-            </TouchableOpacity>
+            <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
+              <TouchableOpacity
+                style={[styles.primaryButton, isClaiming && styles.disabled]}
+                onPress={handleClaimTap}
+                disabled={isClaiming}
+              >
+                {isClaiming ? (
+                  <ActivityIndicator color="#111" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>
+                    {isTutorial
+                      ? 'Complete Tutorial'
+                      : alreadyClaimedFlag ? 'Continue' : 'Claim Rewards'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
             {!isTutorial && (
               <TouchableOpacity style={styles.secondaryButton} onPress={onReturnHome}>
                 <Text style={styles.secondaryButtonText}>Return to Home</Text>
@@ -563,6 +662,9 @@ const styles = StyleSheet.create({
   rewardValue: {
     color: '#d4a04a',
     fontWeight: '800',
+  },
+  ctaWrap: {
+    width: '100%',
   },
   primaryButton: {
     width: '100%',

@@ -78,3 +78,19 @@ export async function setActiveCommander(
     updated_at: serverTimestamp(),
   });
 }
+
+// Switching the active faction also clears selected_commander so the Guild Hall
+// doesn't briefly render a commander tile from the previous faction. The
+// CommanderPicker re-fetches on factionId change and the player picks a
+// commander from the new faction.
+export async function setActiveFaction(
+  uid: string,
+  factionId: FactionId
+): Promise<void> {
+  const profileRef = doc(db, 'player_profiles', uid);
+  await updateDoc(profileRef, {
+    active_faction: factionId,
+    selected_commander: null,
+    updated_at: serverTimestamp(),
+  });
+}

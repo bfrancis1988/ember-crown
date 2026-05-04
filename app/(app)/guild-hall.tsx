@@ -24,6 +24,7 @@ import {
 } from '../../src/hooks/useFactionInventory';
 import { CommanderPicker } from '../../src/components/guild-hall/CommanderPicker';
 import { DeckStrip } from '../../src/components/guild-hall/DeckStrip';
+import { FactionTabs } from '../../src/components/guild-hall/FactionTabs';
 import {
   InventoryFilters,
   type InventoryFilter,
@@ -34,8 +35,9 @@ import {
   addCardToDeck,
   removeCardFromDeck,
   setActiveCommander,
+  setActiveFaction,
 } from '../../src/lib/deckBuilder';
-import { FACTIONS, type FactionId } from '../../src/lib/factions';
+import { FACTIONS, STARTER_FACTION, type FactionId } from '../../src/lib/factions';
 import type { Rarity } from '../../src/types/card';
 import type { DeckSlot } from '../../src/types/deck';
 
@@ -187,6 +189,25 @@ export default function GuildHallScreen() {
     }
   };
 
+  const handleSelectFaction = async (newFactionId: FactionId) => {
+    if (!user) return;
+    if (newFactionId === factionId) return;
+    setActionLoading(true);
+    try {
+      await setActiveFaction(user.uid, newFactionId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert('Could not switch faction', msg);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const unlockedFactions: FactionId[] =
+    profile?.unlocked_factions && profile.unlocked_factions.length > 0
+      ? (profile.unlocked_factions as FactionId[])
+      : [STARTER_FACTION];
+
   // Top-level loading / error states.
   if (profileLoading) {
     return (
@@ -256,12 +277,11 @@ export default function GuildHallScreen() {
         </View>
       </View>
 
-      <View style={[styles.factionHeader, { borderBottomColor: accent }]}>
-        <View style={[styles.factionAccent, { backgroundColor: accent }]} />
-        <Text style={[styles.factionName, { color: accent }]}>
-          {factionMeta?.name ?? factionId}
-        </Text>
-      </View>
+      <FactionTabs
+        selectedFactionId={factionId}
+        unlockedFactions={unlockedFactions}
+        onSelect={handleSelectFaction}
+      />
 
       {isLoading ? (
         <View style={styles.fullCenter}>
@@ -355,24 +375,6 @@ const styles = StyleSheet.create({
   libraryButtonText: {
     fontSize: 12,
     fontWeight: '700',
-  },
-  factionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 2,
-  },
-  factionAccent: {
-    width: 4,
-    height: 18,
-    borderRadius: 2,
-    marginRight: 8,
-  },
-  factionName: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
   },
   gridWrap: {
     flex: 1,
