@@ -173,13 +173,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 64,
-    backgroundColor: '#111',
+    backgroundColor: 'transparent',
   },
   containerCentered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#111',
+    backgroundColor: 'transparent',
   },
   backButton: {
     marginBottom: 24,

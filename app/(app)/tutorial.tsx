@@ -136,7 +136,7 @@ export default function TutorialScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111',
+    backgroundColor: 'transparent',
     paddingHorizontal: 24,
   },
   center: {

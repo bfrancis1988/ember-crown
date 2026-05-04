@@ -212,13 +212,13 @@ export default function CommanderPickerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111',
+    backgroundColor: 'transparent',
   },
   containerCentered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#111',
+    backgroundColor: 'transparent',
     paddingHorizontal: 24,
   },
   scrollContent: {

@@ -164,7 +164,7 @@ function Bold({ children }: { children: React.ReactNode }) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0e0e0e',
+    backgroundColor: 'transparent',
   },
   topBar: {
     flexDirection: 'row',

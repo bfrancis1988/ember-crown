@@ -1,10 +1,10 @@
 // app/(app)/home.tsx
-// Logged-in landing screen. Drives onboarding by branching on
-// profile.onboarding_step:
-//   0, 1 → faction picker CTA
-//   2    → commander picker CTA
-//   3    → loading screen while completeOnboarding runs (auto-fires once)
-//   4+   → welcome-back + Play Solo Match
+// Phase 9 Session 2: redesigned home / landing screen. Onboarding
+// branches (steps 0-3) preserved; step 4+ now renders a content-rich
+// landing page (greeting, wallet, active commander preview, daily
+// check-in placeholder, quick actions) instead of stacked-button list.
+// Mode entries (Solo / Campaign / Tutorial / Forge / Guild) move to
+// the bottom nav bar.
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -14,13 +14,21 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  ScrollView,
+  Pressable,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../src/lib/firebase';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
+import { usePlayerWallet } from '../../src/hooks/usePlayerWallet';
+import { usePlayerActiveDeck } from '../../src/hooks/usePlayerActiveDeck';
 import { completeOnboarding } from '../../src/lib/completeOnboarding';
-import { PlaySoloMatchButton } from '../../src/components/home/PlaySoloMatchButton';
+import { FACTIONS } from '../../src/lib/factions';
 import type { FactionId } from '../../src/lib/factions';
+import type { CommanderEntry } from '../../src/types/commander';
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
@@ -29,16 +37,11 @@ export default function HomeScreen() {
 
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  // completeOnboarding state. We track it locally because the function is
-  // imperative; the profile-step transition tells us when it has finished.
+  // completeOnboarding state (preserved from prior version).
   const [completionError, setCompletionError] = useState<string | null>(null);
   const [completionAttempt, setCompletionAttempt] = useState(0);
   const isCompletingRef = useRef(false);
 
-  // Auto-fire completeOnboarding when the player just picked their commander.
-  // Guarded by isCompletingRef so we don't double-fire on re-renders, and by
-  // completionError so a failure doesn't busy-loop. completeOnboarding is
-  // idempotent (wallet existence check), so a re-run after retry is safe.
   useEffect(() => {
     if (!user) return;
     if (!profile) return;
@@ -68,8 +71,9 @@ export default function HomeScreen() {
     setIsSigningOut(true);
     try {
       await signOut();
-    } catch (err: any) {
-      Alert.alert('Sign out failed', err?.message ?? 'Unknown error');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert('Sign out failed', msg);
       setIsSigningOut(false);
     }
   };
@@ -77,166 +81,271 @@ export default function HomeScreen() {
   const username = profile?.username ?? '...';
   const step = profile?.onboarding_step ?? 0;
 
-  type PrimaryCta = {
-    label: string;
-    href: '/onboarding/faction' | '/onboarding/commander';
-  };
+  // Onboarding branches 0-3 (faction picker, commander picker, provisioning,
+  // provisioning error). Step 4+ falls through to the full landing layout.
+  if (step < 4) {
+    const isProvisioning = step === 3 && !completionError;
+    const showProvisioningError = step === 3 && completionError !== null;
 
-  const view: { title: string; subtitle: string | null; primaryCta: PrimaryCta | null } =
-    step >= 4
-      ? {
-          title: `Welcome back, ${username}`,
-          subtitle: null,
-          primaryCta: null,
-        }
-      : step === 2
-      ? {
-          title: `Welcome, ${username}`,
-          subtitle: `${profile?.active_faction ?? 'Your faction'} stands ready. A leader is needed.`,
-          primaryCta: { label: 'Choose Your Commander', href: '/onboarding/commander' },
-        }
-      : step === 1
-      ? {
-          title: `Welcome, ${username}`,
-          subtitle: 'Your forces await.',
-          primaryCta: { label: 'Choose Your Faction', href: '/onboarding/faction' },
-        }
-      : {
-          title: `Welcome, ${username}`,
-          subtitle: 'Your campaign begins with a choice.',
-          primaryCta: { label: 'Choose Your Faction', href: '/onboarding/faction' },
-        };
+    return (
+      <View style={styles.container}>
+        <TouchableOpacity
+          style={[styles.logoutCorner, isSigningOut && styles.disabled]}
+          onPress={handleSignOut}
+          disabled={isSigningOut}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Text style={styles.logoutCornerText}>Logout</Text>
+        </TouchableOpacity>
 
-  const { title, subtitle, primaryCta } = view;
+        <View style={styles.center}>
+          <Text style={styles.brand}>Ember Crown</Text>
 
-  // Step-3 branch: provisioning is running (or just failed). Render its own
-  // view instead of the normal CTA layout.
-  const isProvisioning = step === 3 && !completionError;
-  const showProvisioningError = step === 3 && completionError !== null;
+          {isProvisioning ? (
+            <>
+              <ActivityIndicator color="#d4a04a" size="large" style={styles.spinner} />
+              <Text style={styles.title}>Forging your destiny…</Text>
+              <Text style={styles.subtitle}>
+                Assembling your starter forces and royal treasury.
+              </Text>
+            </>
+          ) : showProvisioningError ? (
+            <>
+              <Text style={styles.title}>Something went wrong</Text>
+              <Text style={styles.subtitle}>{completionError}</Text>
+              <TouchableOpacity style={styles.primaryButton} onPress={handleRetry}>
+                <Text style={styles.primaryButtonText}>Try again</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.title}>Welcome, {username}</Text>
+              <Text style={styles.subtitle}>
+                {step === 2
+                  ? `${profile?.active_faction ?? 'Your faction'} stands ready. A leader is needed.`
+                  : 'Your campaign begins with a choice.'}
+              </Text>
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() =>
+                  router.push(step === 2 ? '/onboarding/commander' : '/onboarding/faction')
+                }
+              >
+                <Text style={styles.primaryButtonText}>
+                  {step === 2 ? 'Choose Your Commander' : 'Choose Your Faction'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  // ─── Step 4+: full landing layout ────────────────────────────────────
+  return (
+    <LandingView
+      username={username}
+      onSignOut={handleSignOut}
+      isSigningOut={isSigningOut}
+    />
+  );
+}
+
+// ─── LandingView ─────────────────────────────────────────────────────────
+
+type LandingViewProps = {
+  username: string;
+  onSignOut: () => void;
+  isSigningOut: boolean;
+};
+
+function LandingView({ username, onSignOut, isSigningOut }: LandingViewProps) {
+  const router = useRouter();
+  const { profile } = usePlayerProfile();
+  const { wallet } = usePlayerWallet();
+  const { deck } = usePlayerActiveDeck();
+  const [commander, setCommander] = useState<CommanderEntry | null>(null);
+
+  // Resolve the active commander (matches PlaySoloMatchButton's pattern).
+  useEffect(() => {
+    const id = profile?.selected_commander;
+    if (!id) {
+      setCommander(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'commander_library', id));
+        if (cancelled) return;
+        if (snap.exists()) {
+          setCommander(snap.data() as CommanderEntry);
+        }
+      } catch {
+        // Silent fail — preview just falls back to id below.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.selected_commander]);
+
+  const factionMeta = profile?.active_faction
+    ? FACTIONS.find((f) => f.id === profile.active_faction)
+    : undefined;
+  const accent = factionMeta?.color ?? '#d4a04a';
+
+  const activeFactionDeck = deck.filter((s) => s.faction === profile?.active_faction);
+  const deckSize = activeFactionDeck.length;
 
   return (
-    <View style={styles.container}>
+    <View style={styles.landingRoot}>
       <TouchableOpacity
         style={[styles.logoutCorner, isSigningOut && styles.disabled]}
-        onPress={handleSignOut}
+        onPress={onSignOut}
         disabled={isSigningOut}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       >
         <Text style={styles.logoutCornerText}>Logout</Text>
       </TouchableOpacity>
 
-      <View style={styles.center}>
-        <Text style={styles.brand}>Ember Crown</Text>
-
-        {isProvisioning ? (
-          <>
-            <ActivityIndicator
-              color="#d4a04a"
-              size="large"
-              style={styles.spinner}
-            />
-            <Text style={styles.title}>Forging your destiny…</Text>
-            <Text style={styles.subtitle}>
-              Assembling your starter forces and royal treasury.
-            </Text>
-          </>
-        ) : showProvisioningError ? (
-          <>
-            <Text style={styles.title}>Something went wrong</Text>
-            <Text style={styles.subtitle}>{completionError}</Text>
-            <TouchableOpacity style={styles.primaryButton} onPress={handleRetry}>
-              <Text style={styles.primaryButtonText}>Try again</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <Text style={styles.title}>{title}</Text>
-            {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-            {primaryCta && (
-              <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={() => router.push(primaryCta.href)}
-              >
-                <Text style={styles.primaryButtonText}>{primaryCta.label}</Text>
-              </TouchableOpacity>
-            )}
-            {step >= 4 && (
-              <>
-                {profile && !profile.tutorial_completed && (
-                  <TouchableOpacity
-                    style={styles.tutorialButton}
-                    onPress={() => router.push('/tutorial')}
-                  >
-                    <Text style={styles.tutorialButtonText}>📜 Begin Tutorial</Text>
-                    <Text style={styles.tutorialButtonSubtitle}>
-                      Learn the art of command
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                <PlaySoloMatchButton />
-                <TouchableOpacity
-                  style={styles.guildHallButton}
-                  onPress={() => router.push('/campaign')}
-                >
-                  <Text style={styles.guildHallButtonText}>🗺️ Campaign</Text>
-                  <Text style={styles.guildHallButtonSubtitle}>
-                    Defeat factions to unlock the next tier
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.guildHallButton}
-                  onPress={() => router.push('/guild-hall')}
-                >
-                  <Text style={styles.guildHallButtonText}>🛡 Guild Hall</Text>
-                  <Text style={styles.guildHallButtonSubtitle}>
-                    Manage your deck
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.guildHallButton}
-                  onPress={() => router.push('/summon')}
-                >
-                  <Text style={styles.guildHallButtonText}>✨ Summon</Text>
-                  <Text style={styles.guildHallButtonSubtitle}>
-                    Pull cards from banners
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.guildHallButton}
-                  onPress={() => router.push('/library?mode=craft')}
-                >
-                  <Text style={styles.guildHallButtonText}>⚒ Craft</Text>
-                  <Text style={styles.guildHallButtonSubtitle}>
-                    Spend dust on specific cards
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.howToPlayLink}
-                  onPress={() => router.push('/how-to-play')}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.howToPlayLinkText}>❓ How to Play</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </>
-        )}
-      </View>
-
-      <TouchableOpacity
-        style={styles.profileLink}
-        onPress={() => router.push('/profile')}
+      <ScrollView
+        contentContainerStyle={styles.landingScroll}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.profileLinkText}>View Profile</Text>
+        <Text style={styles.greeting}>Welcome back,</Text>
+        <Text style={styles.greetingName}>{username}</Text>
+
+        {wallet && (
+          <View style={styles.walletStrip}>
+            <Text style={styles.walletText}>
+              🪙 {wallet.coins} · 💎 {wallet.shards} · 🗝️ {wallet.keys} · ✨ {wallet.dust ?? 0}
+            </Text>
+          </View>
+        )}
+
+        {/* Active commander preview */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.commanderCard,
+            { borderLeftColor: accent },
+            pressed && styles.commanderCardPressed,
+          ]}
+          onPress={() => router.push('/guild-hall')}
+        >
+          <View style={[styles.commanderArt, { backgroundColor: accent }]}>
+            {commander?.image_url ? (
+              <ExpoImage
+                source={{ uri: commander.image_url }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <Text style={styles.commanderArtFallback}>⚔</Text>
+            )}
+          </View>
+          <View style={styles.commanderInfo}>
+            <Text style={styles.commanderLabel}>Active Commander</Text>
+            <Text style={styles.commanderName}>
+              {commander?.name ?? profile?.selected_commander ?? '—'}
+            </Text>
+            <Text style={styles.commanderMeta}>
+              {commander?.lane ? `${commander.lane} · ` : ''}
+              {factionMeta?.name ?? profile?.active_faction ?? ''}
+            </Text>
+            <Text style={[styles.deckBadge, deckSize === 15 && { color: accent }]}>
+              Deck: {deckSize} / 15
+            </Text>
+          </View>
+        </Pressable>
+
+        {/* Daily Check-In placeholder */}
+        <View style={styles.dailyCard}>
+          <Text style={styles.dailyHeader}>Daily Check-In</Text>
+          <Text style={styles.dailySub}>Coming Soon</Text>
+        </View>
+
+        {/* Quick Actions */}
+        <Text style={styles.sectionLabel}>Quick Actions</Text>
+        <View style={styles.quickActionsRow}>
+          <QuickAction
+            icon="⚔"
+            label="Battle"
+            onPress={() => router.push('/battle')}
+          />
+          <QuickAction
+            icon="🗺"
+            label="Campaign"
+            onPress={() => router.push('/campaign')}
+          />
+          {profile && !profile.tutorial_completed && (
+            <QuickAction
+              icon="📜"
+              label="Tutorial"
+              accent
+              onPress={() => router.push('/tutorial')}
+            />
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={styles.howToPlayLink}
+          onPress={() => router.push('/how-to-play')}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.howToPlayLinkText}>❓ How to Play</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Settings link — bottom right. Routes to /profile until Session 5
+          ships /settings (unimplemented routes would 404). */}
+      <TouchableOpacity
+        style={styles.settingsLink}
+        onPress={() => router.push('/profile')}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Text style={styles.settingsLinkText}>⚙ Settings</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
+// ─── QuickAction button ──────────────────────────────────────────────────
+
+type QuickActionProps = {
+  icon: string;
+  label: string;
+  accent?: boolean;
+  onPress: () => void;
+};
+
+function QuickAction({ icon, label, accent, onPress }: QuickActionProps) {
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.quickAction,
+        accent && styles.quickActionAccent,
+        pressed && styles.quickActionPressed,
+      ]}
+      onPress={onPress}
+    >
+      <Text style={[styles.quickActionIcon, accent && styles.quickActionIconAccent]}>
+        {icon}
+      </Text>
+      <Text style={[styles.quickActionLabel, accent && styles.quickActionLabelAccent]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  // ── Onboarding states (steps 0-3) — kept compatible with prior styling
   container: {
     flex: 1,
-    backgroundColor: '#111',
+    backgroundColor: 'transparent',
     paddingHorizontal: 24,
   },
   logoutCorner: {
@@ -250,9 +359,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  disabled: {
-    opacity: 0.5,
-  },
+  disabled: { opacity: 0.5 },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -293,70 +400,187 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  spinner: {
-    marginBottom: 24,
+  spinner: { marginBottom: 24 },
+
+  // ── Step 4+ landing layout
+  landingRoot: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
-  guildHallButton: {
-    width: '100%',
-    maxWidth: 360,
-    marginTop: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#3a3a3a',
-    backgroundColor: '#1a1a1a',
-    alignItems: 'center',
-  },
-  guildHallButtonText: {
-    color: '#ddd',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  guildHallButtonSubtitle: {
-    color: '#777',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  tutorialButton: {
-    width: '100%',
-    maxWidth: 360,
-    marginBottom: 18,
-    paddingVertical: 18,
+  landingScroll: {
     paddingHorizontal: 20,
-    borderRadius: 10,
-    backgroundColor: '#d4a04a',
-    alignItems: 'center',
+    paddingTop: 56,
+    paddingBottom: 24,
   },
-  tutorialButtonText: {
-    color: '#111',
-    fontSize: 17,
+  greeting: {
+    color: '#bbb',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  greetingName: {
+    color: '#fff',
+    fontSize: 28,
     fontWeight: '800',
+    marginTop: 2,
+    marginBottom: 18,
+  },
+  walletStrip: {
+    backgroundColor: 'rgba(20, 20, 26, 0.85)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginBottom: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#222',
+  },
+  walletText: {
+    color: '#ddd',
+    fontSize: 14,
+    fontWeight: '600',
     letterSpacing: 0.5,
   },
-  tutorialButtonSubtitle: {
-    color: '#3a2c12',
+  commanderCard: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(20, 20, 26, 0.85)',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderColor: '#222',
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    marginBottom: 18,
+  },
+  commanderCardPressed: {
+    opacity: 0.85,
+  },
+  commanderArt: {
+    width: 90,
+    height: 110,
+    borderRadius: 8,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  commanderArtFallback: {
+    color: '#fff',
+    fontSize: 36,
+    opacity: 0.7,
+  },
+  commanderInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  commanderLabel: {
+    color: '#888',
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  commanderName: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  commanderMeta: {
+    color: '#bbb',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  deckBadge: {
+    color: '#888',
     fontSize: 12,
     fontWeight: '600',
-    marginTop: 3,
-    letterSpacing: 0.3,
+    marginTop: 8,
   },
-  profileLink: {
+  dailyCard: {
+    backgroundColor: 'rgba(20, 20, 26, 0.55)',
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#1f1f24',
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    marginBottom: 18,
+    alignItems: 'center',
+  },
+  dailyHeader: {
+    color: '#999',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  dailySub: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 4,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  sectionLabel: {
+    color: '#888',
+    fontSize: 11,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 22,
+  },
+  quickAction: {
+    flex: 1,
+    backgroundColor: 'rgba(20, 20, 26, 0.85)',
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#222',
     paddingVertical: 16,
     alignItems: 'center',
-    marginBottom: 24,
   },
-  profileLinkText: {
-    color: '#888',
-    fontSize: 14,
+  quickActionAccent: {
+    backgroundColor: '#d4a04a',
+    borderColor: '#d4a04a',
+  },
+  quickActionPressed: {
+    opacity: 0.8,
+  },
+  quickActionIcon: {
+    fontSize: 22,
+    color: '#ddd',
+  },
+  quickActionIconAccent: {
+    color: '#111',
+  },
+  quickActionLabel: {
+    color: '#ddd',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+    letterSpacing: 0.3,
+  },
+  quickActionLabelAccent: {
+    color: '#111',
   },
   howToPlayLink: {
-    marginTop: 18,
+    marginTop: 4,
     paddingVertical: 8,
     alignItems: 'center',
   },
   howToPlayLinkText: {
     color: '#666',
     fontSize: 13,
+  },
+  settingsLink: {
+    position: 'absolute',
+    bottom: 16,
+    right: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  settingsLinkText: {
+    color: '#666',
+    fontSize: 12,
   },
 });

@@ -306,7 +306,7 @@ export default function GuildHallScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#111',
+    backgroundColor: 'transparent',
   },
   topBar: {
     flexDirection: 'row',

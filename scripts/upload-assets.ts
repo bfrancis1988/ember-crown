@@ -204,6 +204,55 @@ async function processAsset(
   return { success: true, id, storagePath, uploaded: needsUpload };
 }
 
+// ---------- Global background (Phase 9 Session 2) ----------
+
+// The title-page image is a single PNG at assets root, uploaded to
+// `app/title-page.webp` and rendered as the global background by the
+// GlobalBackground component. No Firestore doc to update — the URL is
+// hardcoded client-side. Hero-asset quality (q=85, 1080x1920) since this
+// is the background for every screen.
+async function uploadGlobalBackground(rootDir: string): Promise<void> {
+  const sourcePath = path.join(rootDir, 'assets', 'title-page.png');
+
+  if (!fs.existsSync(sourcePath)) {
+    console.log('  ✗ No title-page.png found at assets/title-page.png; skipping');
+    return;
+  }
+
+  console.log('  Processing title-page.png...');
+
+  const webpBuffer = await sharp(sourcePath)
+    .resize(1080, 1920, { fit: 'cover', position: 'center' })
+    .webp({ quality: 85 })
+    .toBuffer();
+
+  const storagePath = 'app/title-page.webp';
+  const file = bucket.file(storagePath);
+
+  const [exists] = await file.exists();
+  let needsUpload = true;
+  if (exists) {
+    const [metadata] = await file.getMetadata();
+    const existingSize = parseInt(String(metadata.size ?? '0'), 10);
+    if (existingSize === webpBuffer.length) {
+      needsUpload = false;
+    }
+  }
+
+  if (needsUpload) {
+    await file.save(webpBuffer, {
+      contentType: 'image/webp',
+      metadata: {
+        cacheControl: 'public, max-age=31536000',
+      },
+    });
+    await file.makePublic();
+    console.log(`  ✓ Uploaded ${storagePath}`);
+  } else {
+    console.log(`  ✓ ${storagePath} already current (${webpBuffer.length} bytes)`);
+  }
+}
+
 // ---------- Main ----------
 
 async function main() {
@@ -222,9 +271,18 @@ async function main() {
   );
 
   if (assets.length === 0) {
-    console.log('\nNo assets found. Make sure your assets folder is at:');
+    console.log('\nNo card/commander assets found. Expected paths:');
     console.log(`  ${rootDir}/assets/cards/<faction>/<name>.png`);
     console.log(`  ${rootDir}/assets/commanders/<faction>/<name>.png`);
+    // Don't return — the title-page upload below is independent and may
+    // still have work to do.
+    console.log('\nGlobal background...');
+    try {
+      await uploadGlobalBackground(rootDir);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`  ✗ Global background upload failed: ${msg}`);
+    }
     return;
   }
 
@@ -257,6 +315,16 @@ async function main() {
       failures.push(`${asset.faction}/${asset.displayName}: ${msg}`);
       console.log(`  ✗ ${asset.type}: ${asset.displayName} — ${msg}`);
     }
+  }
+
+  console.log('\nGlobal background...');
+  try {
+    await uploadGlobalBackground(rootDir);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(`  ✗ Global background upload failed: ${msg}`);
+    failures.push(`global-background: ${msg}`);
+    failed++;
   }
 
   console.log('\n=== Summary ===');

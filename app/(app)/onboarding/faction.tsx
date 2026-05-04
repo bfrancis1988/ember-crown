@@ -117,7 +117,7 @@ export default function FactionPickerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111',
+    backgroundColor: 'transparent',
   },
   scrollContent: {
     paddingHorizontal: HORIZONTAL_PADDING,

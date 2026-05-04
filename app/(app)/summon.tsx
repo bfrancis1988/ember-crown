@@ -1,75 +1,24 @@
 // app/(app)/summon.tsx
-// Phase 6: banner-summon screen. Three vertically-stacked banners; each pull
-// invokes the summonCard Cloud Function and renders the result in a modal.
+// Phase 6: banner-summon screen. Phase 9 Session 2: now a thin wrapper
+// around the shared SummonTab component (also used by /forge). The route
+// stays live for backwards compat — same UX, deprecation deferred.
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { httpsCallable } from 'firebase/functions';
-import { doc, getDoc } from 'firebase/firestore';
-import { db, functions } from '../../src/lib/firebase';
-import { BANNERS, type BannerId } from '../../src/lib/banners';
 import { useWalletAndCanSummon } from '../../src/hooks/useWalletAndCanSummon';
-import { BannerCard } from '../../src/components/summon/BannerCard';
-import {
-  SummonResultModal,
-  type SummonResult,
-} from '../../src/components/summon/SummonResultModal';
-import type { CardLibraryEntry } from '../../src/types/card';
-
-type SummonInput = { bannerId: BannerId };
+import { SummonTab } from '../../src/components/forge/SummonTab';
 
 export default function SummonScreen() {
   const router = useRouter();
-  const { wallet, isLoading, canSummon } = useWalletAndCanSummon();
-
-  const [isPulling, setIsPulling] = useState<BannerId | null>(null);
-  const [lastResult, setLastResult] = useState<SummonResult | null>(null);
-  const [lastResultCard, setLastResultCard] = useState<CardLibraryEntry | null>(
-    null
-  );
-  const [lastBannerId, setLastBannerId] = useState<BannerId | null>(null);
-
-  async function handlePull(bannerId: BannerId) {
-    if (isPulling) return;
-    setIsPulling(bannerId);
-    setLastBannerId(bannerId);
-    try {
-      const fn = httpsCallable<SummonInput, SummonResult>(
-        functions,
-        'summonCard'
-      );
-      const result = (await fn({ bannerId })).data;
-      const cardSnap = await getDoc(doc(db, 'card_library', result.card_id));
-      const cardData = cardSnap.exists()
-        ? (cardSnap.data() as CardLibraryEntry)
-        : null;
-      setLastResult(result);
-      setLastResultCard(cardData);
-    } catch (err: any) {
-      Alert.alert('Summon failed', err?.message ?? 'Unknown error');
-    } finally {
-      setIsPulling(null);
-    }
-  }
-
-  const handlePullAgain = () => {
-    if (!lastBannerId) return;
-    setLastResult(null);
-    setLastResultCard(null);
-    handlePull(lastBannerId);
-  };
-
-  const canPullAgain = lastBannerId ? canSummon[lastBannerId] : false;
+  const { wallet, isLoading } = useWalletAndCanSummon();
 
   if (isLoading || !wallet) {
     return (
@@ -97,43 +46,17 @@ export default function SummonScreen() {
 
       <View style={styles.walletStrip}>
         <Text style={styles.walletText}>
-          🪙 {wallet.coins} · 💎 {wallet.shards} · 🗝️ {wallet.keys} · ✨{' '}
-          {wallet.dust ?? 0}
+          🪙 {wallet.coins} · 💎 {wallet.shards} · 🗝️ {wallet.keys} · ✨ {wallet.dust ?? 0}
         </Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {BANNERS.map((banner) => (
-          <View key={banner.id} style={styles.bannerWrap}>
-            <BannerCard
-              banner={banner}
-              canAfford={canSummon[banner.id]}
-              onPress={() => handlePull(banner.id)}
-              isPulling={isPulling === banner.id}
-            />
-          </View>
-        ))}
-      </ScrollView>
-
-      <SummonResultModal
-        result={lastResult}
-        cardLibraryEntry={lastResultCard}
-        onClose={() => {
-          setLastResult(null);
-          setLastResultCard(null);
-        }}
-        onPullAgain={handlePullAgain}
-        canPullAgain={canPullAgain && !isPulling}
-      />
+      <SummonTab />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#111' },
+  safe: { flex: 1, backgroundColor: 'transparent' },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -165,11 +88,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
-  },
-  bannerWrap: { marginBottom: 14 },
   fullCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
