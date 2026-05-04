@@ -29,6 +29,7 @@ export function LibraryFactionTabs({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={styles.strip}
       contentContainerStyle={styles.row}
     >
       {FACTIONS.map((faction) => {
@@ -73,19 +74,25 @@ export function LibraryFactionTabs({
 }
 
 const styles = StyleSheet.create({
+  // ScrollView defaults to flexGrow:1 / flexShrink:1, which makes a horizontal
+  // strip in a column flex parent grow vertically and steal space from the
+  // sibling card grid. Pin it to its content height.
+  strip: { flexGrow: 0, flexShrink: 0 },
   row: {
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 8,
     gap: 8,
     alignItems: 'center',
   },
   pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
+    height: 38,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     backgroundColor: '#1a1a1a',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  label: { fontSize: 13, fontWeight: '600' },
+  label: { fontSize: 14, fontWeight: '700' },
   labelSelected: { color: '#111' },
   labelUnlocked: { color: '#ddd' },
   labelLocked: { color: '#888' },

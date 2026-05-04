@@ -6,7 +6,6 @@ import {
   BottomNav,
   BOTTOM_NAV_BASE_HEIGHT,
 } from '../../src/components/navigation/BottomNav';
-import { GlobalBackground } from '../../src/components/navigation/GlobalBackground';
 
 // Pathnames where the bottom nav should be hidden:
 //   - active match (player commits to the match flow)
@@ -46,7 +45,6 @@ export default function AppLayout() {
 
   return (
     <View style={styles.container}>
-      <GlobalBackground />
       <View style={[styles.content, { paddingBottom: reservedBottom }]}>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
       </View>

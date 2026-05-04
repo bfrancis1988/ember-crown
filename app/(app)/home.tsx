@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   landingScroll: {
     paddingHorizontal: 20,
     paddingTop: 56,
-    paddingBottom: 24,
+    paddingBottom: 96, // 72 nav + 24 buffer so Settings link clears the bar
   },
   greeting: {
     color: '#bbb',
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
   },
   settingsLink: {
     position: 'absolute',
-    bottom: 16,
+    bottom: 84, // sits above the 72px bottom nav with a 12px gap
     right: 20,
     paddingVertical: 6,
     paddingHorizontal: 8,

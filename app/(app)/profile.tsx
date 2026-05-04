@@ -116,11 +116,15 @@ export default function ProfileScreen() {
 
       <Text style={styles.username}>{profile.username}</Text>
 
-      <Text style={styles.label}>UID</Text>
-      <Text style={styles.metaText} selectable>{profile.player_id}</Text>
+      {__DEV__ && (
+        <>
+          <Text style={styles.label}>UID</Text>
+          <Text style={styles.metaText} selectable>{profile.player_id}</Text>
 
-      <Text style={styles.label}>Onboarding step</Text>
-      <Text style={styles.metaText}>{profile.onboarding_step}</Text>
+          <Text style={styles.label}>Onboarding step</Text>
+          <Text style={styles.metaText}>{profile.onboarding_step}</Text>
+        </>
+      )}
 
       <Text style={styles.label}>Faction</Text>
       <Text style={styles.metaText}>{profile.active_faction ?? 'None chosen'}</Text>
@@ -160,10 +164,11 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* TODO: Remove ping test button after Phase 5 Deliverable 2 lands. */}
-      <TouchableOpacity style={styles.testButton} onPress={handleTestPing}>
-        <Text style={styles.buttonText}>🧪 Test Cloud Function</Text>
-      </TouchableOpacity>
+      {__DEV__ && (
+        <TouchableOpacity style={styles.testButton} onPress={handleTestPing}>
+          <Text style={styles.buttonText}>🧪 Test Cloud Function</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
