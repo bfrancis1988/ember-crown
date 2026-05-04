@@ -246,38 +246,33 @@ async function writeBatch(
 // ---------- Campaign stages ----------
 
 async function seedCampaignStages(db: Firestore): Promise<void> {
-  console.log('→ Seeding campaign stages...');
+  console.log('→ Seeding/updating campaign stages...');
   const stagesCol = db.collection('campaign_stages');
 
-  // Idempotency: if a full seed (54 docs) already exists, skip. A partial state
-  // (e.g. an earlier crash mid-batch) gets a warning and a re-write — the
-  // batch.set() with deterministic stage_ids is idempotent.
+  // Two paths:
+  //   - Fresh seed (< 54 docs): full create with computed opponent decks.
+  //   - Full set exists (>= 54): upsert rewards only, preserving deck tuning
+  //     and any other manual edits. Lets future reward tuning be a one-line
+  //     edit + re-seed.
   const existing = await stagesCol.count().get();
-  const existingCount = existing.data().count;
-  if (existingCount >= CAMPAIGN_STAGES.length) {
-    console.log(`  ✓ ${existingCount} stages already exist; skipping.`);
-    return;
-  }
-  if (existingCount > 0) {
-    console.log(
-      `  ⚠ Partial state detected (${existingCount}/${CAMPAIGN_STAGES.length} stages). Re-writing.`
-    );
-  }
+  const fullSetExists = existing.data().count >= CAMPAIGN_STAGES.length;
 
-  // Load card_library to compute opponent_deck_card_ids per stage.
-  // Bots use unit-only decks (matches the D3 bot pattern).
-  const cardLibrarySnap = await db.collection('card_library').get();
-  const cardsByFaction = new Map<string, string[]>();
-  cardLibrarySnap.docs.forEach((d) => {
-    const data = d.data();
-    if (data.card_type !== 'Unit') return;
-    const list = cardsByFaction.get(data.faction) ?? [];
-    list.push(data.card_id);
-    cardsByFaction.set(data.faction, list);
-  });
+  let cardsByFaction: Map<string, string[]> | null = null;
+  if (!fullSetExists) {
+    // Only need to load card_library when creating fresh.
+    const cardLibrarySnap = await db.collection('card_library').get();
+    cardsByFaction = new Map<string, string[]>();
+    cardLibrarySnap.docs.forEach((d) => {
+      const data = d.data();
+      if (data.card_type !== 'Unit') return;
+      const list = cardsByFaction!.get(data.faction) ?? [];
+      list.push(data.card_id);
+      cardsByFaction!.set(data.faction, list);
+    });
+  }
 
   function buildDeck(factionId: string): string[] {
-    const available = cardsByFaction.get(factionId) ?? [];
+    const available = cardsByFaction!.get(factionId) ?? [];
     if (available.length === 0) {
       console.warn(`  ⚠ No unit cards found for faction ${factionId}!`);
       return [];
@@ -294,13 +289,19 @@ async function seedCampaignStages(db: Firestore): Promise<void> {
   let writeCount = 0;
   let totalWritten = 0;
   for (const seed of CAMPAIGN_STAGES) {
-    const stage = {
-      ...seed,
-      opponent_deck_card_ids: buildDeck(seed.faction),
-      created_at: FieldValue.serverTimestamp(),
-    };
-    const ref = stagesCol.doc(stage.stage_id);
-    batch.set(ref, stage);
+    const ref = stagesCol.doc(seed.stage_id);
+    if (fullSetExists) {
+      // Upsert rewards only; preserve all other fields (including any
+      // hand-tuned opponent_deck_card_ids).
+      batch.update(ref, { rewards: seed.rewards });
+    } else {
+      const stage = {
+        ...seed,
+        opponent_deck_card_ids: buildDeck(seed.faction),
+        created_at: FieldValue.serverTimestamp(),
+      };
+      batch.set(ref, stage);
+    }
     writeCount++;
     totalWritten++;
     // Firestore batch limit is 500 ops. 54 fits in one, but guard anyway.
@@ -312,7 +313,9 @@ async function seedCampaignStages(db: Firestore): Promise<void> {
   }
   if (writeCount > 0) await batch.commit();
 
-  console.log(`  ✓ Seeded ${totalWritten} campaign stages.`);
+  console.log(
+    `  ✓ ${fullSetExists ? 'Updated rewards on' : 'Seeded'} ${totalWritten} campaign stages.`
+  );
 }
 
 // ---------- Main ----------

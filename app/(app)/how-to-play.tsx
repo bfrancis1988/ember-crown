@@ -38,8 +38,15 @@ export default function HowToPlayScreen() {
       >
         <Section title="The Goal">
           <Para>
-            Win 2 of 3 rounds. Each round, win 2 of 3 lanes. Highest Power per
-            lane wins that lane.
+            Each match has 3 rounds. Each round, 3 lanes are contested —
+            Melee, Ranged, and Siege. Winning a lane (highest Power) earns 1
+            Victory Point.
+          </Para>
+          <Para>
+            After 3 rounds, the player with the most Victory Points wins the
+            match. There are 9 lanes total (3 per round × 3 rounds), and you
+            win by winning more lanes overall — even if you trail in a single
+            round on the way.
           </Para>
         </Section>
 
@@ -70,12 +77,13 @@ export default function HowToPlayScreen() {
 
         <Section title="Rounds & VP">
           <Para>
-            Round ends when both players pass. Winning a lane awards Victory
-            Points (VP).
+            A round ends when both players pass. After all 3 rounds finish,
+            the player with the most Victory Points wins.
           </Para>
           <Para>
-            Best of 3 rounds wins the match. Rounds 2 and 3 each let you draw 2
-            new cards.
+            Between rounds, the board clears, debuffs lift, and you draw 2 new
+            cards. Plan ahead — cards you save now are cards you'll have for
+            the next round.
           </Para>
         </Section>
 

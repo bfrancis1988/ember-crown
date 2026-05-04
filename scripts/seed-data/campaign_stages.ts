@@ -30,7 +30,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Bandit Lieutenant',
     opponent_commander_id: 'CMD-VAN-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'vanguard_kingdoms_02',
@@ -42,7 +42,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Cursed Brigand',
     opponent_commander_id: 'CMD-VAN-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'vanguard_kingdoms_03',
@@ -54,7 +54,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Veteran Sergeant',
     opponent_commander_id: 'CMD-VAN-03',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'vanguard_kingdoms_04',
@@ -66,7 +66,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Rival Captain',
     opponent_commander_id: 'CMD-VAN-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'vanguard_kingdoms_05',
@@ -78,7 +78,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Siege Commander',
     opponent_commander_id: 'CMD-VAN-03',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'vanguard_kingdoms_06',
@@ -90,7 +90,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Archer Captain Vell',
     opponent_commander_id: 'CMD-VAN-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'vanguard_kingdoms_07',
@@ -102,7 +102,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Lieutenant Marek',
     opponent_commander_id: 'CMD-VAN-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 150, shards: 2, keys: 0 },
+    rewards: { coins: 250, shards: 3, keys: 0 },
   },
   {
     stage_id: 'vanguard_kingdoms_08',
@@ -114,7 +114,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Lieutenant Sora',
     opponent_commander_id: 'CMD-VAN-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 150, shards: 2, keys: 0 },
+    rewards: { coins: 250, shards: 3, keys: 0 },
   },
   {
     stage_id: 'vanguard_kingdoms_09',
@@ -130,7 +130,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
       commander_pre_activated: true,
       extra_round_draw: 1,
     },
-    rewards: { coins: 250, shards: 5, keys: 1 },
+    rewards: { coins: 400, shards: 10, keys: 1 },
     unlocks_factions: ['Iron Pact'],
   },
 
@@ -147,7 +147,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Forge Sentinel',
     opponent_commander_id: 'CMD-IRO-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'iron_pact_02',
@@ -159,7 +159,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Forge Master Apprentice',
     opponent_commander_id: 'CMD-IRO-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'iron_pact_03',
@@ -171,7 +171,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Junior Engineer',
     opponent_commander_id: 'CMD-IRO-03',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'iron_pact_04',
@@ -183,7 +183,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Stonewatch Captain',
     opponent_commander_id: 'CMD-IRO-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'iron_pact_05',
@@ -195,7 +195,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Siege Architect',
     opponent_commander_id: 'CMD-IRO-03',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'iron_pact_06',
@@ -207,7 +207,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Underforge Warden',
     opponent_commander_id: 'CMD-IRO-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'iron_pact_07',
@@ -219,7 +219,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Lieutenant Grom',
     opponent_commander_id: 'CMD-IRO-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 150, shards: 2, keys: 0 },
+    rewards: { coins: 250, shards: 3, keys: 0 },
   },
   {
     stage_id: 'iron_pact_08',
@@ -231,7 +231,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Lieutenant Velka',
     opponent_commander_id: 'CMD-IRO-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 150, shards: 2, keys: 0 },
+    rewards: { coins: 250, shards: 3, keys: 0 },
   },
   {
     stage_id: 'iron_pact_09',
@@ -247,7 +247,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
       // Forge attrition: Bregor draws 2 extra cards per round-end. The forge never stops.
       extra_round_draw: 2,
     },
-    rewards: { coins: 250, shards: 5, keys: 1 },
+    rewards: { coins: 400, shards: 10, keys: 1 },
     unlocks_factions: ['Arborea Kingdom', 'Ashen Swarm'],
   },
 
@@ -264,7 +264,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Sylvian Scout',
     opponent_commander_id: 'CMD-ARB-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'arborea_kingdom_02',
@@ -276,7 +276,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Glade Druid',
     opponent_commander_id: 'CMD-ARB-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'arborea_kingdom_03',
@@ -288,7 +288,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Thicket Apprentice',
     opponent_commander_id: 'CMD-ARB-03',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'arborea_kingdom_04',
@@ -300,7 +300,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Ancient Ranger',
     opponent_commander_id: 'CMD-ARB-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'arborea_kingdom_05',
@@ -312,7 +312,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Citadel Warden',
     opponent_commander_id: 'CMD-ARB-03',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'arborea_kingdom_06',
@@ -324,7 +324,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'High Druid Vael',
     opponent_commander_id: 'CMD-ARB-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'arborea_kingdom_07',
@@ -336,7 +336,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Lieutenant Faelara',
     opponent_commander_id: 'CMD-ARB-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 150, shards: 2, keys: 0 },
+    rewards: { coins: 250, shards: 3, keys: 0 },
   },
   {
     stage_id: 'arborea_kingdom_08',
@@ -348,7 +348,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Lieutenant Caelan',
     opponent_commander_id: 'CMD-ARB-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 150, shards: 2, keys: 0 },
+    rewards: { coins: 250, shards: 3, keys: 0 },
   },
   {
     stage_id: 'arborea_kingdom_09',
@@ -364,7 +364,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
       starting_lane_buff: { lane: 'Ranged', card_count: 2 },
       extra_round_draw: 1,
     },
-    rewards: { coins: 250, shards: 5, keys: 1 },
+    rewards: { coins: 400, shards: 10, keys: 1 },
     unlocks_factions: ['Obsidian Empire', 'Feral Hollow'],
   },
 
@@ -381,7 +381,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Crypt Wight',
     opponent_commander_id: 'CMD-ASH-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'ashen_swarm_02',
@@ -393,7 +393,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Apprentice Necromancer',
     opponent_commander_id: 'CMD-ASH-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'ashen_swarm_03',
@@ -405,7 +405,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Dread Vanguard',
     opponent_commander_id: 'CMD-ASH-03',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'ashen_swarm_04',
@@ -417,7 +417,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Bone Marshal',
     opponent_commander_id: 'CMD-ASH-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'ashen_swarm_05',
@@ -429,7 +429,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Silent Marshal',
     opponent_commander_id: 'CMD-ASH-03',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'ashen_swarm_06',
@@ -441,7 +441,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'High Necromancer Tarn',
     opponent_commander_id: 'CMD-ASH-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'ashen_swarm_07',
@@ -453,7 +453,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Lieutenant Korvas',
     opponent_commander_id: 'CMD-ASH-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 150, shards: 2, keys: 0 },
+    rewards: { coins: 250, shards: 3, keys: 0 },
   },
   {
     stage_id: 'ashen_swarm_08',
@@ -465,7 +465,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Lieutenant Ysolde',
     opponent_commander_id: 'CMD-ASH-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 150, shards: 2, keys: 0 },
+    rewards: { coins: 250, shards: 3, keys: 0 },
   },
   {
     stage_id: 'ashen_swarm_09',
@@ -481,7 +481,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
       commander_pre_activated: true,
       debuff_strength_override: 3,
     },
-    rewards: { coins: 250, shards: 5, keys: 1 },
+    rewards: { coins: 400, shards: 10, keys: 1 },
     unlocks_factions: ['Obsidian Empire', 'Feral Hollow'],
   },
 
@@ -498,7 +498,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Gate Sentinel',
     opponent_commander_id: 'CMD-OBS-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'obsidian_empire_02',
@@ -510,7 +510,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Junior Flame Seer',
     opponent_commander_id: 'CMD-OBS-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'obsidian_empire_03',
@@ -522,7 +522,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Sky Sentinel',
     opponent_commander_id: 'CMD-OBS-03',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'obsidian_empire_04',
@@ -534,7 +534,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Ashfall Captain',
     opponent_commander_id: 'CMD-OBS-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'obsidian_empire_05',
@@ -546,7 +546,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Roost Tyrant',
     opponent_commander_id: 'CMD-OBS-03',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'obsidian_empire_06',
@@ -558,7 +558,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'High Flame Seer',
     opponent_commander_id: 'CMD-OBS-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'obsidian_empire_07',
@@ -570,7 +570,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Lieutenant Kazrak',
     opponent_commander_id: 'CMD-OBS-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 150, shards: 2, keys: 0 },
+    rewards: { coins: 250, shards: 3, keys: 0 },
   },
   {
     stage_id: 'obsidian_empire_08',
@@ -582,7 +582,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Lieutenant Sylth',
     opponent_commander_id: 'CMD-OBS-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 150, shards: 2, keys: 0 },
+    rewards: { coins: 250, shards: 3, keys: 0 },
   },
   {
     stage_id: 'obsidian_empire_09',
@@ -598,7 +598,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
       starting_lane_buff: { lane: 'Melee', card_count: 2 },
       extra_round_draw: 1,
     },
-    rewards: { coins: 250, shards: 5, keys: 1 },
+    rewards: { coins: 400, shards: 10, keys: 1 },
     // Terminal faction — no further unlocks.
   },
 
@@ -615,7 +615,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Pack Sentinel',
     opponent_commander_id: 'CMD-FER-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'feral_hollow_02',
@@ -627,7 +627,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Mire Hag',
     opponent_commander_id: 'CMD-FER-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'feral_hollow_03',
@@ -639,7 +639,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Junior Beast-Master',
     opponent_commander_id: 'CMD-FER-03',
     opponent_deck_card_ids: [],
-    rewards: { coins: 50, shards: 0, keys: 0 },
+    rewards: { coins: 100, shards: 1, keys: 0 },
   },
   {
     stage_id: 'feral_hollow_04',
@@ -651,7 +651,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Moon Alpha',
     opponent_commander_id: 'CMD-FER-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'feral_hollow_05',
@@ -663,7 +663,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Tide Beast-Lord',
     opponent_commander_id: 'CMD-FER-03',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'feral_hollow_06',
@@ -675,7 +675,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Elder Hag',
     opponent_commander_id: 'CMD-FER-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 100, shards: 1, keys: 0 },
+    rewards: { coins: 175, shards: 2, keys: 0 },
   },
   {
     stage_id: 'feral_hollow_07',
@@ -687,7 +687,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Lieutenant Thraeg',
     opponent_commander_id: 'CMD-FER-01',
     opponent_deck_card_ids: [],
-    rewards: { coins: 150, shards: 2, keys: 0 },
+    rewards: { coins: 250, shards: 3, keys: 0 },
   },
   {
     stage_id: 'feral_hollow_08',
@@ -699,7 +699,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
     opponent_name: 'Lieutenant Nessa',
     opponent_commander_id: 'CMD-FER-02',
     opponent_deck_card_ids: [],
-    rewards: { coins: 150, shards: 2, keys: 0 },
+    rewards: { coins: 250, shards: 3, keys: 0 },
   },
   {
     stage_id: 'feral_hollow_09',
@@ -715,7 +715,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
       commander_pre_activated: true,
       debuff_strength_override: 3,
     },
-    rewards: { coins: 250, shards: 5, keys: 1 },
+    rewards: { coins: 400, shards: 10, keys: 1 },
     // Terminal faction — no further unlocks.
   },
 ];

@@ -12,8 +12,11 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, { title: string; body: string }> =
   match_start: {
     title: 'Welcome to Ember Crown',
     body:
-      'Each match has 3 rounds. Win 2 of 3 lanes per round to win that round. ' +
-      'Win 2 of 3 rounds to win the match.\n\n' +
+      'Each match plays out over 3 rounds. In every round, you and your ' +
+      'opponent contest 3 lanes — Melee, Ranged, and Siege. The lane with ' +
+      'the highest Power earns 1 Victory Point.\n\n' +
+      'After 3 rounds, the player with the most Victory Points wins. Total ' +
+      'lanes won across the whole match is what counts.\n\n' +
       'Drag a card from your hand to a lane to play it. Each card has Power, ' +
       'and Lane Power = sum of all your cards there. Highest Power per lane ' +
       'wins that lane.',
@@ -41,8 +44,8 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, { title: string; body: string }> =
     body:
       'Round 1 over. Lanes you won earn Victory Points (VP). The board clears, ' +
       'debuffs clear, and you draw 2 new cards.\n\n' +
-      "Best of 3 rounds. Plan ahead — cards you save now are cards you'll have " +
-      'for the next round.',
+      "Two more rounds to go. Plan ahead — cards you save now are cards " +
+      "you'll have for the next round.",
   },
   commander_activate_hint: {
     title: 'Your Commander',

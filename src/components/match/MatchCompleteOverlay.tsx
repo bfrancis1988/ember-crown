@@ -296,7 +296,99 @@ export function MatchCompleteOverlay({
     );
   }
 
-  // ─── Tutorial / Solo branch (unchanged behavior) ──────────────────────
+  // ─── Solo branch ──────────────────────────────────────────────────────
+  // Mirrors the campaign branch shell (header → result → score → rewards
+  // card → primary CTA). Solo rewards are server-computed, so pre-claim
+  // shows a placeholder instead of a number — post-claim renders the actual
+  // values returned by claimMatchRewards.
+  if (session.mode === 'solo') {
+    const isWin = myWins > oppWins;
+    const isDraw = myWins === oppWins;
+    const soloResultText = isWin ? 'VICTORY' : isDraw ? 'DRAW' : 'DEFEAT';
+    const soloResultColor = isWin ? '#5cd35c' : isDraw ? '#bbb' : '#e05a5a';
+
+    // Reopened-after-claim guard (mirrors campaign branch L229-245): the
+    // match was already claimed in a previous session and we have no in-
+    // memory reward result, so don't show misleading +0 numbers.
+    if (alreadyClaimedFlag && !claimResult) {
+      return (
+        <View style={styles.backdrop}>
+          <View style={styles.modal}>
+            <Text style={styles.header}>Match Complete</Text>
+            <Text style={[styles.result, { color: '#d4a04a' }]}>{soloResultText}</Text>
+            <Text style={styles.stageSubtitle}>Solo Match</Text>
+            <Text style={styles.stageSubtitle}>Rewards already claimed.</Text>
+            <TouchableOpacity style={styles.primaryButton} onPress={onReturnHome}>
+              <Text style={styles.primaryButtonText}>Return Home</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    // Post-claim: VICTORY/DEFEAT color persists, rewards card shows real
+    // server-returned amounts.
+    if (hasClaimed && claimResult) {
+      return (
+        <View style={styles.backdrop}>
+          <View style={styles.modal}>
+            <Text style={styles.header}>Match Complete</Text>
+            <Text style={[styles.result, { color: soloResultColor }]}>{soloResultText}</Text>
+            <Text style={styles.stageSubtitle}>Solo Match</Text>
+            <Text style={styles.score}>
+              {myWins} <Text style={styles.scoreDash}>—</Text> {oppWins}
+            </Text>
+            <View style={styles.rewards}>
+              <Text style={styles.rewardsHeader}>Rewards</Text>
+              <Text style={styles.rewardLine}>
+                <Text style={styles.rewardLabel}>Coins  </Text>
+                <Text style={styles.rewardValue}>+{claimResult.coins_earned}</Text>
+              </Text>
+              <Text style={styles.rewardLine}>
+                <Text style={styles.rewardLabel}>Shards </Text>
+                <Text style={styles.rewardValue}>+{claimResult.shards_earned}</Text>
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.primaryButton} onPress={onReturnHome}>
+              <Text style={styles.primaryButtonText}>Return Home</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    // Pre-claim
+    return (
+      <View style={styles.backdrop}>
+        <View style={styles.modal}>
+          <Text style={styles.header}>Match Complete</Text>
+          <Text style={[styles.result, { color: soloResultColor }]}>{soloResultText}</Text>
+          <Text style={styles.stageSubtitle}>Solo Match</Text>
+          <Text style={styles.score}>
+            {myWins} <Text style={styles.scoreDash}>—</Text> {oppWins}
+          </Text>
+          <View style={styles.rewards}>
+            <Text style={styles.rewardsHeader}>Rewards (preview)</Text>
+            <Text style={styles.rewardsHint}>Tap Claim Rewards to collect.</Text>
+          </View>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <TouchableOpacity
+            style={[styles.primaryButton, isClaiming && styles.disabled]}
+            onPress={handleSoloClaim}
+            disabled={isClaiming}
+          >
+            {isClaiming ? (
+              <ActivityIndicator color="#111" />
+            ) : (
+              <Text style={styles.primaryButtonText}>Claim Rewards</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // ─── Tutorial branch (unchanged behavior) ─────────────────────────────
   const result: 'VICTORY' | 'DEFEAT' | 'DRAW' | 'TUTORIAL' = isTutorial
     ? 'TUTORIAL'
     : myWins > oppWins ? 'VICTORY' : myWins < oppWins ? 'DEFEAT' : 'DRAW';
@@ -452,6 +544,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     marginBottom: 8,
+  },
+  rewardsHint: {
+    color: '#bbb',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 4,
+    paddingHorizontal: 8,
   },
   rewardLine: {
     fontSize: 16,
