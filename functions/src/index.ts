@@ -17,3 +17,4 @@ export { completeOnboardingFn } from './onboarding/completeOnboardingFn';
 export { completeTutorial } from './onboarding/completeTutorial';
 export { summonCard } from './economy/summonCard';
 export { craftCard } from './economy/craftCard';
+export { disenchantCard } from './economy/disenchantCard';

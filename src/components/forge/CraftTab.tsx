@@ -4,7 +4,7 @@
 // /library?mode=craft route (kept live for backwards compat) and the new
 // /forge Craft tab.
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,12 +17,14 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../lib/firebase';
 import { usePlayerProfile } from '../../hooks/usePlayerProfile';
 import { usePlayerInventory } from '../../hooks/usePlayerInventory';
+import { usePlayerActiveDeck } from '../../hooks/usePlayerActiveDeck';
 import { useCardLibrary } from '../../hooks/useCardLibrary';
 import { useWalletAndCanSummon } from '../../hooks/useWalletAndCanSummon';
 import { LibraryFactionTabs } from '../library/LibraryFactionTabs';
 import { LibraryCardGrid } from '../library/LibraryCardGrid';
 import { CardDetailModal } from '../library/CardDetailModal';
 import { FACTIONS, STARTER_FACTION, type FactionId } from '../../lib/factions';
+import { DUPLICATE_DUST_VALUES, type Rarity } from '../../lib/banners';
 import type { CardLibraryEntry } from '../../types/card';
 
 type CraftInput = { card_id: string };
@@ -31,6 +33,15 @@ type CraftResult = {
   card_id: string;
   rarity: string;
   dust_spent: number;
+  quantity_owned_after: number;
+};
+
+type DisenchantInput = { card_id: string };
+type DisenchantResult = {
+  success: true;
+  card_id: string;
+  rarity: Rarity;
+  dust_gained: number;
   quantity_owned_after: number;
 };
 
@@ -44,11 +55,23 @@ type Props = {
 export function CraftTab({ mode = 'craft' }: Props) {
   const { profile, isLoading: profileLoading } = usePlayerProfile();
   const { inventory } = usePlayerInventory();
+  const { deck } = usePlayerActiveDeck();
   const { wallet } = useWalletAndCanSummon();
   const [libraryKey, setLibraryKey] = useState(0);
   const [isCrafting, setIsCrafting] = useState(false);
+  const [isDisenchanting, setIsDisenchanting] = useState(false);
 
   const dustAvailable = wallet?.dust ?? 0;
+
+  // Slot count per card_id across all factions — used by browse-mode
+  // disenchant to refuse if the operation would orphan a deck slot.
+  const activeDeckCountByCard = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const slot of deck) {
+      m.set(slot.card_id, (m.get(slot.card_id) ?? 0) + 1);
+    }
+    return m;
+  }, [deck]);
 
   const unlockedFactions: FactionId[] =
     profile?.unlocked_factions && profile.unlocked_factions.length > 0
@@ -81,6 +104,9 @@ export function CraftTab({ mode = 'craft' }: Props) {
   const detailFactionLocked = selectedCard
     ? !unlockedFactions.includes(selectedCard.faction as FactionId)
     : false;
+  const detailInActiveDeckCount = selectedCard
+    ? activeDeckCountByCard.get(selectedCard.card_id) ?? 0
+    : 0;
 
   async function handleCraft() {
     if (!selectedCard || isCrafting) return;
@@ -93,6 +119,37 @@ export function CraftTab({ mode = 'craft' }: Props) {
       Alert.alert('Craft failed', msg);
     } finally {
       setIsCrafting(false);
+    }
+  }
+
+  async function handleDisenchant() {
+    if (!selectedCard || isDisenchanting) return;
+    const dustValue = DUPLICATE_DUST_VALUES[selectedCard.rarity];
+    const remaining = detailQuantityOwned - 1;
+    const proceed = await new Promise<boolean>((resolve) => {
+      Alert.alert(
+        'Disenchant card',
+        `Disenchant 1 copy of ${selectedCard.card_name} for ✨ ${dustValue} dust? (You'll have ${remaining} ${remaining === 1 ? 'copy' : 'copies'} remaining.)`,
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Disenchant', style: 'destructive', onPress: () => resolve(true) },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) },
+      );
+    });
+    if (!proceed) return;
+    setIsDisenchanting(true);
+    try {
+      const fn = httpsCallable<DisenchantInput, DisenchantResult>(
+        functions,
+        'disenchantCard',
+      );
+      await fn({ card_id: selectedCard.card_id });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert('Disenchant failed', msg);
+    } finally {
+      setIsDisenchanting(false);
     }
   }
 
@@ -125,6 +182,9 @@ export function CraftTab({ mode = 'craft' }: Props) {
         dustAvailable={dustAvailable}
         onCraft={handleCraft}
         isCrafting={isCrafting}
+        inActiveDeckCount={detailInActiveDeckCount}
+        onDisenchant={handleDisenchant}
+        isDisenchanting={isDisenchanting}
       />
     </>
   );

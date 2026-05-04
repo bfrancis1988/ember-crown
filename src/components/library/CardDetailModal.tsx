@@ -16,7 +16,11 @@ import {
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CardLibraryEntry, Rarity } from '../../types/card';
-import { CRAFT_DUST_COSTS, MAX_COPIES_PER_CARD } from '../../lib/banners';
+import {
+  CRAFT_DUST_COSTS,
+  DUPLICATE_DUST_VALUES,
+  MAX_COPIES_PER_CARD,
+} from '../../lib/banners';
 
 type Props = {
   card: CardLibraryEntry | null;
@@ -28,6 +32,13 @@ type Props = {
   dustAvailable?: number;
   onCraft?: () => void;
   isCrafting?: boolean;
+  // Disenchant — only used in browse mode. Count is the number of slots in
+  // the player's active deck(s) referencing this card_id; the button is
+  // disabled when (quantityOwned - 1) < inActiveDeckCount, matching the
+  // server-side rule in disenchantCard.
+  inActiveDeckCount?: number;
+  onDisenchant?: () => void;
+  isDisenchanting?: boolean;
 };
 
 const RARITY_BORDER: Record<Rarity, string> = {
@@ -50,6 +61,9 @@ export function CardDetailModal({
   dustAvailable = 0,
   onCraft,
   isCrafting = false,
+  inActiveDeckCount = 0,
+  onDisenchant,
+  isDisenchanting = false,
 }: Props) {
   const visible = card !== null;
   const screenWidth = Dimensions.get('window').width;
@@ -78,6 +92,18 @@ export function CardDetailModal({
   const canAffordCraft = dustAvailable >= dustCost;
   const craftEnabled =
     isCraftMode && !isFactionLocked && !atMax && canAffordCraft && !isCrafting;
+
+  // Disenchant visibility: browse mode, owned at least one, faction unlocked,
+  // and the parent provided a handler. Enablement adds the deck-break check.
+  const dustGain = card ? DUPLICATE_DUST_VALUES[card.rarity] : 0;
+  const disenchantVisible =
+    !isCraftMode &&
+    !isFactionLocked &&
+    quantityOwned >= 1 &&
+    typeof onDisenchant === 'function';
+  const disenchantWouldBreakDeck = quantityOwned - 1 < inActiveDeckCount;
+  const disenchantEnabled =
+    disenchantVisible && !disenchantWouldBreakDeck && !isDisenchanting;
 
   return (
     <Modal
@@ -230,6 +256,38 @@ export function CardDetailModal({
                     )}
                   </View>
                 )}
+
+                {disenchantVisible && (
+                  <View style={styles.disenchantBlock}>
+                    <TouchableOpacity
+                      style={[
+                        styles.disenchantButton,
+                        !disenchantEnabled && styles.disenchantButtonDisabled,
+                      ]}
+                      onPress={disenchantEnabled ? onDisenchant : undefined}
+                      disabled={!disenchantEnabled}
+                    >
+                      {isDisenchanting ? (
+                        <ActivityIndicator color="#d4a04a" />
+                      ) : (
+                        <Text
+                          style={
+                            disenchantEnabled
+                              ? styles.disenchantButtonText
+                              : styles.disenchantButtonTextDisabled
+                          }
+                        >
+                          Convert to Dust (✨ {dustGain})
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                    {disenchantWouldBreakDeck && (
+                      <Text style={styles.disenchantHint}>
+                        In active deck — cannot disenchant.
+                      </Text>
+                    )}
+                  </View>
+                )}
               </View>
             </ScrollView>
           </>
@@ -361,6 +419,25 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   craftHint: {
+    color: '#888',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  disenchantBlock: { marginTop: 16 },
+  disenchantButton: {
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d4a04a',
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  disenchantButtonDisabled: { borderColor: '#444' },
+  disenchantButtonText: { color: '#d4a04a', fontSize: 15, fontWeight: '700' },
+  disenchantButtonTextDisabled: { color: '#666', fontSize: 14, fontWeight: '600' },
+  disenchantHint: {
     color: '#888',
     fontSize: 12,
     textAlign: 'center',
