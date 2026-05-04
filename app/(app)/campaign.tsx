@@ -3,7 +3,7 @@
 // /campaign/[factionId] (URL form: spaces → underscores). Locked cards are
 // dimmed and tap-inert.
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
@@ -20,8 +21,13 @@ import {
   useCampaignStages,
   getStagesByFaction,
 } from '../../src/hooks/useCampaignStages';
+import { useCardLibrary } from '../../src/hooks/useCardLibrary';
 import { FACTIONS } from '../../src/lib/factions';
 import type { FactionMeta } from '../../src/lib/factions';
+import {
+  FACTION_REPRESENTATIVE_CARDS,
+  hexToRgba,
+} from '../../src/lib/factionRepresentativeCards';
 import type { CampaignStage } from '../../src/types/campaign';
 
 const STAGES_PER_FACTION = 9;
@@ -31,9 +37,25 @@ export default function CampaignHubScreen() {
   const { profile, isLoading: profileLoading } = usePlayerProfile();
   const { progress, isLoading: progressLoading } = useCampaignProgress();
   const { stages, isLoading: stagesLoading } = useCampaignStages();
+  const { cards: cardLibrary } = useCardLibrary();
 
   const isLoading = profileLoading || progressLoading || stagesLoading;
   const unlockedFactions = profile?.unlocked_factions ?? [];
+
+  // Resolve representative card_id → image_url once. Card library is cached
+  // module-level so this is essentially a Map lookup after the first render.
+  const factionBackgrounds = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const card of cardLibrary) {
+      m.set(card.card_id, card.image_url ?? '');
+    }
+    const out = new Map<string, string>();
+    for (const f of FACTIONS) {
+      const cardId = FACTION_REPRESENTATIVE_CARDS[f.id];
+      out.set(f.id, m.get(cardId) ?? '');
+    }
+    return out;
+  }, [cardLibrary]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -67,6 +89,7 @@ export default function CampaignHubScreen() {
               isUnlocked={unlockedFactions.includes(faction.id)}
               factionProgress={progress?.progress?.[faction.id] ?? 0}
               factionStages={getStagesByFaction(stages, faction.id)}
+              backgroundUrl={factionBackgrounds.get(faction.id) ?? ''}
               onPress={() =>
                 router.push(`/campaign/${faction.id.replace(/ /g, '_')}`)
               }
@@ -83,12 +106,14 @@ function FactionCampaignCard({
   isUnlocked,
   factionProgress,
   factionStages,
+  backgroundUrl,
   onPress,
 }: {
   faction: FactionMeta;
   isUnlocked: boolean;
   factionProgress: number;
   factionStages: CampaignStage[];
+  backgroundUrl: string;
   onPress: () => void;
 }) {
   const isComplete = factionProgress >= STAGES_PER_FACTION;
@@ -107,26 +132,47 @@ function FactionCampaignCard({
       ? `Next: Stage ${nextStage.stage_number} — ${nextStage.title}`
       : null;
 
-  const cardStyle = [
-    styles.factionCard,
-    { borderLeftColor: faction.color },
-    !isUnlocked && styles.factionCardLocked,
-  ];
+  // Locked tiles dim the art further to signal "not yet yours" without going
+  // grayscale — RN Image lacks a built-in grayscale filter, so we just lower
+  // the image opacity instead of layering a tone-mapping shader.
+  const imageOpacity = isUnlocked ? 0.4 : 0.18;
+  const tintAlpha = isUnlocked ? 0.55 : 0.75;
 
   return (
     <TouchableOpacity
-      style={cardStyle}
+      style={[
+        styles.factionCard,
+        { borderLeftColor: faction.color },
+        !isUnlocked && styles.factionCardLocked,
+      ]}
       onPress={onPress}
       disabled={!isUnlocked}
       activeOpacity={isUnlocked ? 0.7 : 1}
     >
-      <Text style={[styles.factionName, { color: faction.color }]}>
-        {faction.name}
-      </Text>
-      <Text style={styles.statusLine}>{statusLine}</Text>
-      {previewLine ? (
-        <Text style={styles.previewLine}>{previewLine}</Text>
+      {backgroundUrl ? (
+        <ExpoImage
+          source={{ uri: backgroundUrl }}
+          style={[StyleSheet.absoluteFill, { opacity: imageOpacity }]}
+          contentFit="cover"
+          transition={200}
+        />
       ) : null}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: hexToRgba(faction.color, tintAlpha) },
+        ]}
+        pointerEvents="none"
+      />
+      <View style={styles.factionCardContent}>
+        <Text style={[styles.factionName, styles.factionNameOverImage]}>
+          {faction.name}
+        </Text>
+        <Text style={[styles.statusLine, styles.textOverImage]}>{statusLine}</Text>
+        {previewLine ? (
+          <Text style={[styles.previewLine, styles.textOverImage]}>{previewLine}</Text>
+        ) : null}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -186,20 +232,30 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderColor: '#222',
     borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
     marginBottom: 12,
     minHeight: 140,
-    justifyContent: 'center',
+    overflow: 'hidden',
   },
   factionCardLocked: {
-    opacity: 0.5,
+    opacity: 0.7,
+  },
+  factionCardContent: {
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    minHeight: 140,
   },
   factionName: {
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 8,
     letterSpacing: 0.3,
+  },
+  factionNameOverImage: {
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   statusLine: {
     color: '#cfcfcf',
@@ -211,5 +267,11 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 13,
     marginTop: 4,
+  },
+  textOverImage: {
+    color: '#f5e7c2',
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 });

@@ -6,7 +6,7 @@
 // TODO: Phase 3 extends isFactionUnlocked() with an inventory check.
 // TODO: Phase 7 ties unlock to campaign progress.
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -16,9 +16,15 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { FACTIONS, isFactionUnlocked, type FactionMeta } from '../../../src/lib/factions';
+import {
+  FACTION_REPRESENTATIVE_CARDS,
+  hexToRgba,
+} from '../../../src/lib/factionRepresentativeCards';
 import { FactionPreviewModal } from '../../../src/components/FactionPreviewModal';
+import { useCardLibrary } from '../../../src/hooks/useCardLibrary';
 import { usePlayerProfile } from '../../../src/hooks/usePlayerProfile';
 
 const HORIZONTAL_PADDING = 16;
@@ -28,11 +34,24 @@ const COLUMNS = 2;
 export default function FactionPickerScreen() {
   const router = useRouter();
   const { profile, updateProfile } = usePlayerProfile();
+  const { cards: cardLibrary } = useCardLibrary();
   const [previewFaction, setPreviewFaction] = useState<FactionMeta | null>(null);
 
   const screenWidth = Dimensions.get('window').width;
   const tileWidth =
     (screenWidth - HORIZONTAL_PADDING * 2 - GRID_GAP * (COLUMNS - 1)) / COLUMNS;
+
+  // Same lookup pattern as the campaign hub: rep card_id → image_url. Uses
+  // the module-cached card library so this is a single fetch across the app.
+  const factionBackgrounds = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const card of cardLibrary) m.set(card.card_id, card.image_url ?? '');
+    const out = new Map<string, string>();
+    for (const f of FACTIONS) {
+      out.set(f.id, m.get(FACTION_REPRESENTATIVE_CARDS[f.id]) ?? '');
+    }
+    return out;
+  }, [cardLibrary]);
 
   const handleSelect = async () => {
     if (!previewFaction) return;
@@ -61,6 +80,11 @@ export default function FactionPickerScreen() {
           {FACTIONS.map((faction, idx) => {
             const unlocked = isFactionUnlocked(faction.id, profile);
             const isLastInRow = (idx + 1) % COLUMNS === 0;
+            const backgroundUrl = factionBackgrounds.get(faction.id) ?? '';
+            // Locked tiles dim the art so it reads as "not yet yours" while
+            // still hinting at the faction's visual identity.
+            const imageOpacity = unlocked ? 0.55 : 0.22;
+            const tintAlpha = unlocked ? 0.45 : 0.7;
             return (
               <TouchableOpacity
                 key={faction.id}
@@ -79,6 +103,21 @@ export default function FactionPickerScreen() {
                     !unlocked && styles.tileLocked,
                   ]}
                 >
+                  {backgroundUrl ? (
+                    <ExpoImage
+                      source={{ uri: backgroundUrl }}
+                      style={[StyleSheet.absoluteFill, { opacity: imageOpacity }]}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : null}
+                  <View
+                    style={[
+                      StyleSheet.absoluteFill,
+                      { backgroundColor: hexToRgba(faction.color, tintAlpha) },
+                    ]}
+                    pointerEvents="none"
+                  />
                   <View style={styles.tileBody}>
                     <Text style={styles.tileName} numberOfLines={2}>
                       {faction.name}

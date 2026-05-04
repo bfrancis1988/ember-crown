@@ -1,14 +1,39 @@
 // Full-screen tooltip overlay rendered when activeTrigger !== null.
-// Visual style mirrors MatchCompleteOverlay (dark backdrop, gold accent).
+// 9.3E "spotlight light" treatment: the overlay still darkens the screen
+// (slightly less than before, 0.85), but the tooltip card is positioned
+// in a region of the screen rather than centered, so it visually points
+// at the area the trigger relates to without measured arrow anchoring.
+// True cutout-spotlight + measured arrows are deferred to v1.1.
 
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import {
   type TooltipTrigger,
   useTutorialTooltips,
 } from './TutorialTooltipProvider';
 
-const TOOLTIP_CONTENT: Record<TooltipTrigger, { title: string; body: string }> = {
+type TooltipPosition =
+  | 'top'
+  | 'middle'
+  | 'bottom-right'
+  | 'bottom-left'
+  | 'left'
+  | 'right';
+
+type TooltipContent = {
+  title: string;
+  body: string;
+  position: TooltipPosition;
+};
+
+const TOOLTIP_CONTENT: Record<TooltipTrigger, TooltipContent> = {
   match_start: {
     title: 'Welcome to Ember Crown',
     body:
@@ -20,6 +45,7 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, { title: string; body: string }> =
       'Drag a card from your hand to a lane to play it. Each card has Power, ' +
       'and Lane Power = sum of all your cards there. Highest Power per lane ' +
       'wins that lane.',
+    position: 'middle',
   },
   first_card_played: {
     title: 'Lane Power',
@@ -30,6 +56,7 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, { title: string; body: string }> =
       '• +1 per card if your commander is active in this lane\n' +
       '• −2 if the lane is cursed\n\n' +
       'Watch the colors: green = buffed, red = debuffed, gold = default.',
+    position: 'top',
   },
   first_optimal_lane_bonus: {
     title: 'Optimal Lane',
@@ -38,6 +65,7 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, { title: string; body: string }> =
       'Every Unit has a preferred lane: Melee, Ranged, or Siege. Playing them ' +
       'where they belong is one of your biggest power swings. Always check the ' +
       "card's optimal lane before placing.",
+    position: 'top',
   },
   first_round_ended: {
     title: 'Round End',
@@ -46,6 +74,7 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, { title: string; body: string }> =
       'debuffs clear, and you draw 2 new cards.\n\n' +
       "Two more rounds to go. Plan ahead — cards you save now are cards " +
       "you'll have for the next round.",
+    position: 'middle',
   },
   commander_activate_hint: {
     title: 'Your Commander',
@@ -56,6 +85,7 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, { title: string; body: string }> =
       'and can only be used once.\n\n' +
       'Time it carefully — activating early gives more value, but in the wrong ' +
       "lane it's wasted.",
+    position: 'bottom-left',
   },
   first_pass: {
     title: 'Passing',
@@ -65,6 +95,7 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, { title: string; body: string }> =
       "Strategy: pass early if you've sealed a lead and want to save cards for " +
       "next round. Pass late to maximize lanes you've won. Passing isn't giving " +
       "up — it's a tactical choice.",
+    position: 'bottom-right',
   },
   curse_hint: {
     title: 'Curses',
@@ -73,6 +104,7 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, { title: string; body: string }> =
       'cards there) for the rest of the round.\n\n' +
       "Use them on the enemy's strongest lane to flip the lead. The debuff " +
       'clears at round end.',
+    position: 'middle',
   },
   cleanse_hint: {
     title: 'Cleanses',
@@ -80,24 +112,55 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, { title: string; body: string }> =
       'Cleanses remove a curse from one of your lanes — restoring your Power.\n\n' +
       "Save them for when an enemy curse is hurting you. Don't waste them on " +
       'undebuffed lanes.',
+    position: 'middle',
   },
   tutorial_complete: {
     title: 'Tutorial Complete',
     body:
       "Well done. You're ready for real matches. Claim your starting rewards " +
       'and begin your campaign.',
+    position: 'middle',
   },
 };
+
+function positionStyle(position: TooltipPosition): ViewStyle {
+  switch (position) {
+    case 'top':
+      return { top: '12%', left: '6%', right: '6%' };
+    case 'middle':
+      return {
+        top: '32%',
+        left: '6%',
+        right: '6%',
+      };
+    case 'bottom-right':
+      return { bottom: '14%', right: '6%', left: '20%', maxWidth: 320 };
+    case 'bottom-left':
+      return { bottom: '14%', left: '6%', right: '20%', maxWidth: 320 };
+    case 'left':
+      return { top: '30%', left: '6%', right: '30%' };
+    case 'right':
+      return { top: '30%', right: '6%', left: '30%' };
+  }
+}
 
 export function TutorialTooltipOverlay() {
   const { activeTrigger, dismissTooltip } = useTutorialTooltips();
   if (!activeTrigger) return null;
 
-  const { title, body } = TOOLTIP_CONTENT[activeTrigger];
+  const { title, body, position } = TOOLTIP_CONTENT[activeTrigger];
 
   return (
-    <View style={styles.backdrop} pointerEvents="auto">
-      <View style={styles.modal}>
+    <View style={styles.backdrop} pointerEvents="box-none">
+      {/* The dim layer is its own absolute layer so the tooltip card sits
+          above it. Tapping the dim layer dismisses (mirrors a "click-out"
+          on the spotlight). */}
+      <Pressable
+        style={styles.dim}
+        onPress={dismissTooltip}
+        accessibilityHint="Dismiss tooltip"
+      />
+      <View style={[styles.modal, positionStyle(position)]} pointerEvents="auto">
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.body}>{body}</Text>
         <TouchableOpacity style={styles.button} onPress={dismissTooltip}>
@@ -111,38 +174,36 @@ export function TutorialTooltipOverlay() {
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.78)',
-    justifyContent: 'center',
-    alignItems: 'center',
     zIndex: 90,
-    paddingHorizontal: 24,
+  },
+  dim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.85)',
   },
   modal: {
-    width: '100%',
-    maxWidth: 360,
+    position: 'absolute',
     backgroundColor: '#181818',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#3a2c12',
-    paddingVertical: 24,
-    paddingHorizontal: 22,
-    alignItems: 'stretch',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
   },
   title: {
     color: '#f5e7c2',
     fontSize: 18,
     fontWeight: '800',
-    marginBottom: 12,
+    marginBottom: 10,
     textAlign: 'center',
   },
   body: {
     color: '#cfcfcf',
     fontSize: 14,
     lineHeight: 21,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   button: {
-    height: 46,
+    height: 44,
     borderRadius: 8,
     backgroundColor: '#d4a04a',
     justifyContent: 'center',
