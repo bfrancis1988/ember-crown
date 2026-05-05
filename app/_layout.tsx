@@ -4,11 +4,16 @@ import { StyleSheet, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { GlobalBackground } from '../src/components/navigation/GlobalBackground';
+import { initAdMob } from '../src/lib/admob';
 
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
   const { isLoading } = useAuth();
+
+  useEffect(() => {
+    initAdMob().catch((err) => console.warn('AdMob init failed:', err));
+  }, []);
 
   useEffect(() => {
     if (!isLoading) {
