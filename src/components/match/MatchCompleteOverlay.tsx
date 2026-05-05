@@ -21,10 +21,12 @@ import {
 } from 'react-native';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { showRewardedAd } from '../../lib/admob';
 import type { MatchSession, Side } from '../../types/match';
 import type { CampaignStage } from '../../types/campaign';
 import type {
   ClaimMatchRewardsResult,
+  ClaimMatchRewardsWithAdResult,
   RecordCampaignWinResult,
 } from '../../types/matchActions';
 import { FactionUnlockCelebration } from '../campaign/FactionUnlockCelebration';
@@ -42,6 +44,7 @@ type Props = {
   onClaim: () => Promise<ClaimMatchRewardsResult>;
   onCompleteTutorial?: () => Promise<CompleteTutorialResult>;
   onClaimCampaign?: () => Promise<RecordCampaignWinResult>;
+  onClaimWithAd?: () => Promise<ClaimMatchRewardsWithAdResult>;
   onReturnHome: () => void;
   onReturnToCampaign?: () => void;
 };
@@ -52,6 +55,7 @@ export function MatchCompleteOverlay({
   onClaim,
   onCompleteTutorial,
   onClaimCampaign,
+  onClaimWithAd,
   onReturnHome,
   onReturnToCampaign,
 }: Props) {
@@ -63,6 +67,13 @@ export function MatchCompleteOverlay({
   const [campaignClaimResult, setCampaignClaimResult] =
     useState<RecordCampaignWinResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Phase 9.4 — rewarded-ad bonus claim. When set, render switches to a
+  // unified post-ad-claim view (handled near the top of the render below).
+  const [adClaimResult, setAdClaimResult] =
+    useState<ClaimMatchRewardsWithAdResult | null>(null);
+  const [isShowingAd, setIsShowingAd] = useState(false);
+  const [adError, setAdError] = useState<string | null>(null);
 
   const [stage, setStage] = useState<CampaignStage | null>(null);
 
@@ -204,6 +215,96 @@ export function MatchCompleteOverlay({
     }
   };
 
+  const handleWatchAd = async () => {
+    if (!onClaimWithAd) {
+      setAdError('Ad rewards unavailable.');
+      return;
+    }
+    setIsShowingAd(true);
+    setAdError(null);
+    try {
+      const earned = await showRewardedAd();
+      if (!earned) {
+        setAdError('Ad not completed. Try again?');
+        return;
+      }
+      const r = await onClaimWithAd();
+      setAdClaimResult(r);
+      setHasClaimed(true);
+    } catch (err: any) {
+      setAdError(err?.message ?? 'Could not claim ad reward.');
+    } finally {
+      setIsShowingAd(false);
+    }
+  };
+
+  // Per-match cap: only show the Watch Ad CTA when nothing has been claimed
+  // yet (regular OR ad). Tutorial and missing-handler cases also gate it out.
+  const adCtaAvailable =
+    !!onClaimWithAd &&
+    !isTutorial &&
+    !alreadyClaimedFlag &&
+    !session.ad_reward_claimed &&
+    !hasClaimed;
+
+  // ─── Post-ad-claim (unified across solo/campaign, win/loss) ───────────
+  // When the ad bonus has been granted, render a single summary view. For
+  // campaign first-wins that unlocked factions, the celebration takes over.
+  if (adClaimResult) {
+    const handleReturnToCampaign = onReturnToCampaign ?? onReturnHome;
+    if (isCampaign && adClaimResult.factions_unlocked.length > 0) {
+      return (
+        <FactionUnlockCelebration
+          factionsUnlocked={adClaimResult.factions_unlocked}
+          onContinue={handleReturnToCampaign}
+        />
+      );
+    }
+
+    const isWin = adClaimResult.is_win;
+    const headerColor = isWin ? '#5cd35c' : '#e05a5a';
+    const headerLabel = isWin ? 'VICTORY' : 'DEFEAT';
+    const subtitle = isWin
+      ? 'Watched ad — rewards doubled!'
+      : 'Watched ad — bonus claimed!';
+    const onReturn = isCampaign ? handleReturnToCampaign : onReturnHome;
+    const returnLabel = isCampaign ? 'Return to Campaign' : 'Return Home';
+
+    return (
+      <View style={styles.backdrop}>
+        <View style={styles.modal}>
+          <Text style={styles.header}>Match Complete</Text>
+          <Animated.Text style={[styles.result, { color: headerColor }, headerAnimStyle]}>
+            {headerLabel}
+          </Animated.Text>
+          <Text style={styles.adClaimSubtitle}>{subtitle}</Text>
+          <Animated.View style={[styles.rewards, rewardsAnimStyle]}>
+            <Text style={styles.rewardsHeader}>Rewards</Text>
+            <Text style={styles.rewardLine}>
+              <Text style={styles.rewardLabel}>Coins  </Text>
+              <Text style={styles.rewardValue}>+{adClaimResult.coins_earned}</Text>
+            </Text>
+            <Text style={styles.rewardLine}>
+              <Text style={styles.rewardLabel}>Shards </Text>
+              <Text style={styles.rewardValue}>+{adClaimResult.shards_earned}</Text>
+            </Text>
+            {adClaimResult.keys_earned > 0 ? (
+              <Text style={styles.rewardLine}>
+                <Text style={styles.rewardLabel}>Keys   </Text>
+                <Text style={styles.rewardValue}>+{adClaimResult.keys_earned}</Text>
+              </Text>
+            ) : null}
+          </Animated.View>
+          <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
+            <TouchableOpacity style={styles.primaryButton} onPress={onReturn}>
+              <Text style={styles.primaryButtonText}>{returnLabel}</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </View>
+    );
+  }
+
   // ─── Campaign branch ──────────────────────────────────────────────────
   if (isCampaign) {
     const handleReturnToCampaign = onReturnToCampaign ?? onReturnHome;
@@ -228,11 +329,29 @@ export function MatchCompleteOverlay({
             <Text style={styles.score}>
               {myWins} <Text style={styles.scoreDash}>—</Text> {oppWins}
             </Text>
+            {adError ? <Text style={styles.error}>{adError}</Text> : null}
             <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
-              <TouchableOpacity style={styles.primaryButton} onPress={handleReturnToCampaign}>
+              <TouchableOpacity
+                style={[styles.primaryButton, isShowingAd && styles.disabled]}
+                onPress={handleReturnToCampaign}
+                disabled={isShowingAd}
+              >
                 <Text style={styles.primaryButtonText}>Return to Campaign</Text>
               </TouchableOpacity>
             </Animated.View>
+            {adCtaAvailable ? (
+              <TouchableOpacity
+                style={[styles.adButton, isShowingAd && styles.disabled]}
+                onPress={handleWatchAd}
+                disabled={isShowingAd}
+              >
+                {isShowingAd ? (
+                  <ActivityIndicator color="#d4a04a" />
+                ) : (
+                  <Text style={styles.adButtonText}>▶ Watch Ad to Bonus Rewards</Text>
+                )}
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       );
@@ -276,11 +395,12 @@ export function MatchCompleteOverlay({
               </Animated.View>
             ) : null}
             {error ? <Text style={styles.error}>{error}</Text> : null}
+            {adError ? <Text style={styles.error}>{adError}</Text> : null}
             <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
               <TouchableOpacity
-                style={[styles.primaryButton, isClaiming && styles.disabled]}
+                style={[styles.primaryButton, (isClaiming || isShowingAd) && styles.disabled]}
                 onPress={handleCampaignClaim}
-                disabled={isClaiming}
+                disabled={isClaiming || isShowingAd}
               >
                 {isClaiming ? (
                   <ActivityIndicator color="#111" />
@@ -289,6 +409,19 @@ export function MatchCompleteOverlay({
                 )}
               </TouchableOpacity>
             </Animated.View>
+            {adCtaAvailable ? (
+              <TouchableOpacity
+                style={[styles.adButton, (isClaiming || isShowingAd) && styles.disabled]}
+                onPress={handleWatchAd}
+                disabled={isClaiming || isShowingAd}
+              >
+                {isShowingAd ? (
+                  <ActivityIndicator color="#d4a04a" />
+                ) : (
+                  <Text style={styles.adButtonText}>▶ Watch Ad to Double Rewards</Text>
+                )}
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       );
@@ -445,6 +578,7 @@ export function MatchCompleteOverlay({
     }
 
     // Pre-claim
+    const adCopy = isWin ? '▶ Watch Ad to Double Rewards' : '▶ Watch Ad to Bonus Rewards';
     return (
       <View style={styles.backdrop}>
         <View style={styles.modal}>
@@ -461,11 +595,12 @@ export function MatchCompleteOverlay({
             <Text style={styles.rewardsHint}>Tap Claim Rewards to collect.</Text>
           </Animated.View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
+          {adError ? <Text style={styles.error}>{adError}</Text> : null}
           <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
             <TouchableOpacity
-              style={[styles.primaryButton, isClaiming && styles.disabled]}
+              style={[styles.primaryButton, (isClaiming || isShowingAd) && styles.disabled]}
               onPress={handleSoloClaim}
-              disabled={isClaiming}
+              disabled={isClaiming || isShowingAd}
             >
               {isClaiming ? (
                 <ActivityIndicator color="#111" />
@@ -474,6 +609,19 @@ export function MatchCompleteOverlay({
               )}
             </TouchableOpacity>
           </Animated.View>
+          {adCtaAvailable ? (
+            <TouchableOpacity
+              style={[styles.adButton, (isClaiming || isShowingAd) && styles.disabled]}
+              onPress={handleWatchAd}
+              disabled={isClaiming || isShowingAd}
+            >
+              {isShowingAd ? (
+                <ActivityIndicator color="#d4a04a" />
+              ) : (
+                <Text style={styles.adButtonText}>{adCopy}</Text>
+              )}
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     );
@@ -624,6 +772,30 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     marginBottom: 12,
+  },
+  adClaimSubtitle: {
+    color: '#d4a04a',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  adButton: {
+    width: '100%',
+    paddingVertical: 12,
+    marginTop: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3a2c12',
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  adButtonText: {
+    color: '#d4a04a',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   rewards: {
     width: '100%',
