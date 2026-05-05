@@ -45,6 +45,10 @@ export type MatchSession = {
   player_a_claimed: boolean;
   player_b_claimed: boolean;
 
+  // Phase 9.4: set true after a successful claimMatchRewardsWithAd call.
+  // Optional for lazy migration of pre-9.4 sessions; treat undefined as false.
+  ad_reward_claimed?: boolean;
+
   bot_difficulty: BotDifficulty;
 
   mode: MatchMode;
