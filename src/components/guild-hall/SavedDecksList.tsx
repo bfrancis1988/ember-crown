@@ -4,9 +4,8 @@
 // empty (a tap-to-build CTA that the parent screen wires to the deck
 // builder workflow).
 //
-// The actual editing of cards still happens in the existing Guild Hall
-// strip + inventory; this list is a navigation/selection surface, not an
-// editor.
+// Phase 9.4.5-fix-2B: header row hosts the Save Deck button (replaces the
+// standalone saveBar). Slot tiles are vertically tighter (minHeight 92->76).
 
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -22,6 +21,9 @@ type Props = {
   onUseDeck: (deck: SavedDeck) => void;
   onDeleteDeck: (deck: SavedDeck) => void;
   onSelectEmptySlot: (slotNumber: SavedDeckSlotNumber) => void;
+  // Phase 9.4.5-fix-2B: Save Deck moved into this header.
+  canSave: boolean;
+  onSave: () => void;
 };
 
 export function SavedDecksList({
@@ -32,6 +34,8 @@ export function SavedDecksList({
   onUseDeck,
   onDeleteDeck,
   onSelectEmptySlot,
+  canSave,
+  onSave,
 }: Props) {
   const factionDecks = decks.filter((d) => d.faction === factionId);
   const bySlot = new Map<SavedDeckSlotNumber, SavedDeck>();
@@ -43,7 +47,28 @@ export function SavedDecksList({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Saved Decks</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.heading}>Saved Decks</Text>
+        <Pressable
+          onPress={onSave}
+          disabled={!canSave}
+          style={[
+            styles.saveBtn,
+            canSave
+              ? { backgroundColor: factionColor }
+              : { backgroundColor: '#1f1f24' },
+          ]}
+        >
+          <Text
+            style={[
+              styles.saveBtnText,
+              canSave ? { color: '#111' } : { color: '#666' },
+            ]}
+          >
+            Save Deck
+          </Text>
+        </Pressable>
+      </View>
       <View style={styles.row}>
         {SLOTS.map((slot) => {
           const deck = bySlot.get(slot);
@@ -91,41 +116,47 @@ function FilledSlot({
   onDelete: () => void;
 }) {
   return (
-    <View style={[styles.slot, isActive && { borderColor: accent, borderWidth: 1.5 }]}>
-      <Text style={styles.slotIndex}>Slot {deck.slot_number}</Text>
+    <Pressable
+      onPress={onUse}
+      disabled={isActive}
+      style={[
+        styles.slot,
+        isActive && { borderColor: accent, borderWidth: 1.5 },
+      ]}
+    >
       <Text style={styles.slotName} numberOfLines={1}>
         {deck.name}
       </Text>
       <Text style={[styles.slotPower, { color: accent }]}>
         ⚡ {deck.power_score}
       </Text>
-      <View style={styles.actions}>
-        <Pressable
-          onPress={onUse}
+      <View
+        style={[
+          styles.useTag,
+          isActive
+            ? { backgroundColor: '#1f1f24' }
+            : { backgroundColor: accent },
+        ]}
+      >
+        <Text
           style={[
-            styles.actionBtn,
-            isActive
-              ? { backgroundColor: '#1f1f24' }
-              : { backgroundColor: accent },
+            styles.useTagText,
+            isActive ? { color: '#888' } : { color: '#111' },
           ]}
-          disabled={isActive}
         >
-          <Text
-            style={[
-              styles.actionText,
-              isActive ? { color: '#888' } : { color: '#111' },
-            ]}
-          >
-            {isActive ? 'In Use' : 'Use'}
-          </Text>
-        </Pressable>
-        {canDelete && (
-          <Pressable onPress={onDelete} style={styles.deleteBtn}>
-            <Text style={styles.deleteText}>✕</Text>
-          </Pressable>
-        )}
+          {isActive ? 'In Use' : 'Tap to Use'}
+        </Text>
       </View>
-    </View>
+      {canDelete && (
+        <Pressable
+          onPress={onDelete}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.deleteCorner}
+        >
+          <Text style={styles.deleteText}>✕</Text>
+        </Pressable>
+      )}
+    </Pressable>
   );
 }
 
@@ -155,20 +186,35 @@ function EmptySlot({
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 10,
+    paddingTop: 8,
     paddingBottom: 8,
     paddingHorizontal: 12,
     backgroundColor: '#161616',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#222',
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+    paddingHorizontal: 4,
+  },
   heading: {
     color: '#bbb',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.6,
-    marginBottom: 6,
-    paddingHorizontal: 4,
+  },
+  saveBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+  },
+  saveBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
   row: {
     flexDirection: 'row',
@@ -178,11 +224,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1c1c22',
     borderRadius: 8,
-    padding: 8,
-    minHeight: 92,
+    padding: 6,
+    minHeight: 76,
     justifyContent: 'space-between',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#2a2a30',
+    position: 'relative',
   },
   slotEmpty: {
     alignItems: 'center',
@@ -197,43 +244,39 @@ const styles = StyleSheet.create({
   },
   slotName: {
     color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  slotPower: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  slotPower: {
+    fontSize: 11,
+    fontWeight: '700',
     marginTop: 2,
   },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  useTag: {
     marginTop: 6,
-  },
-  actionBtn: {
-    flex: 1,
-    paddingVertical: 5,
-    borderRadius: 5,
+    paddingVertical: 3,
+    borderRadius: 4,
     alignItems: 'center',
   },
-  actionText: {
-    fontSize: 11,
+  useTagText: {
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  deleteBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#2a1f24',
+  deleteCorner: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(42,31,36,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   deleteText: {
     color: '#c87070',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
   },
   emptyHint: {

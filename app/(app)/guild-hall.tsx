@@ -464,6 +464,8 @@ export default function GuildHallScreen() {
             onUseDeck={handleUseDeck}
             onDeleteDeck={handleDeleteDeck}
             onSelectEmptySlot={handleSelectEmptySlot}
+            canSave={factionSlots.length === DECK_SIZE}
+            onSave={handleOpenSave}
           />
 
           <DeckStrip
@@ -474,30 +476,6 @@ export default function GuildHallScreen() {
             powerScore={draftPowerScore}
             accentColor={accent}
           />
-
-          <View style={styles.saveBar}>
-            <Pressable
-              onPress={handleOpenSave}
-              disabled={factionSlots.length !== DECK_SIZE}
-              style={[
-                styles.saveBtn,
-                factionSlots.length === DECK_SIZE
-                  ? { backgroundColor: accent }
-                  : { backgroundColor: '#1f1f24' },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.saveBtnText,
-                  factionSlots.length === DECK_SIZE
-                    ? { color: '#111' }
-                    : { color: '#666' },
-                ]}
-              >
-                Save Deck
-              </Text>
-            </Pressable>
-          </View>
 
           <InventoryFilters
             selectedFilter={filter}
@@ -593,24 +571,6 @@ const styles = StyleSheet.create({
   },
   gridWrap: {
     flex: 1,
-  },
-  saveBar: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#161616',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#222',
-  },
-  saveBtn: {
-    paddingVertical: 10,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.4,
   },
   fullCenter: {
     flex: 1,
