@@ -16,6 +16,10 @@ type Props = {
   cardLibraryMap: Map<string, CardLibraryEntry>;
   factionColorMap: Map<string, string>;
   onRemoveSlot: (slotId: string) => void;
+  // Phase 9.4.5B: live-computed deck power score for the strip's contents.
+  // Optional so legacy callers stay rendered without it.
+  powerScore?: number | null;
+  accentColor?: string;
 };
 
 export function DeckStrip({
@@ -23,25 +27,35 @@ export function DeckStrip({
   cardLibraryMap,
   factionColorMap,
   onRemoveSlot,
+  powerScore,
+  accentColor,
 }: Props) {
   // Render at most DECK_TARGET filled slots; pad to DECK_TARGET total with empties.
   const filled = deckSlots.slice(0, DECK_TARGET);
   const emptyCount = Math.max(0, DECK_TARGET - filled.length);
   const count = filled.length;
   const isFull = count === DECK_TARGET;
+  const accent = accentColor ?? '#d4a04a';
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerLabel}>Active Deck</Text>
-        <Text
-          style={[
-            styles.headerCount,
-            { color: isFull ? '#4caf50' : '#d4a04a' },
-          ]}
-        >
-          {count}/{DECK_TARGET}
-        </Text>
+        <View style={styles.headerRight}>
+          {powerScore != null && (
+            <Text style={[styles.headerPower, { color: accent }]}>
+              ⚡ {powerScore}
+            </Text>
+          )}
+          <Text
+            style={[
+              styles.headerCount,
+              { color: isFull ? '#4caf50' : accent },
+            ]}
+          >
+            {count}/{DECK_TARGET}
+          </Text>
+        </View>
       </View>
 
       <ScrollView
@@ -94,6 +108,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerPower: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   headerCount: {
     fontSize: 13,

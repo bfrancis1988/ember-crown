@@ -19,6 +19,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
 import { useSoloPlayableFactions } from '../../src/hooks/useSoloPlayableFactions';
 import { usePlayerActiveDeck } from '../../src/hooks/usePlayerActiveDeck';
+import { usePlayerSavedDecks } from '../../src/hooks/usePlayerSavedDecks';
 import {
   useFactionInventory,
   type InventoryCardView,
@@ -32,15 +33,25 @@ import {
   type InventorySort,
 } from '../../src/components/guild-hall/InventoryFilters';
 import { InventoryGrid } from '../../src/components/guild-hall/InventoryGrid';
+import { SavedDecksList } from '../../src/components/guild-hall/SavedDecksList';
+import { SaveDeckModal } from '../../src/components/guild-hall/SaveDeckModal';
 import {
   addCardToDeck,
   removeCardFromDeck,
   setActiveCommander,
   setActiveFaction,
 } from '../../src/lib/deckBuilder';
+import { computeDeckPower } from '../../src/lib/computeDeckPower';
+import {
+  callDeleteSavedDeck,
+  callSaveDeck,
+  callSetActiveSavedDeck,
+  syncActiveDeckBuffer,
+} from '../../src/lib/savedDeckHelpers';
 import { FACTIONS, STARTER_FACTION, type FactionId } from '../../src/lib/factions';
 import type { Rarity } from '../../src/types/card';
 import type { DeckSlot } from '../../src/types/deck';
+import type { SavedDeck, SavedDeckSlotNumber } from '../../src/types/savedDeck';
 
 const DECK_SIZE = 15;
 
@@ -66,6 +77,17 @@ export default function GuildHallScreen() {
   const [filter, setFilter] = useState<InventoryFilter>('All');
   const [sort, setSort] = useState<InventorySort>('rarity');
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Phase 9.4.5B saved decks state.
+  const { decks: savedDecks } = usePlayerSavedDecks();
+  const [saveModalVisible, setSaveModalVisible] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  // When the player taps an empty slot in SavedDecksList, remember which
+  // slot they chose so the modal opens with that slot pre-selected.
+  const [requestedSlot, setRequestedSlot] = useState<SavedDeckSlotNumber | null>(null);
+  // When editing an existing deck, remember which deck so saving
+  // becomes an update rather than a fresh create.
+  const [editingDeck, setEditingDeck] = useState<SavedDeck | null>(null);
 
   const factionMeta = factionId ? FACTIONS.find((f) => f.id === factionId) : undefined;
   const accent = factionMeta?.color ?? '#d4a04a';
@@ -204,6 +226,142 @@ export default function GuildHallScreen() {
     }
   };
 
+  // ─── Saved decks (Phase 9.4.5B) ──────────────────────────────────────
+
+  // Live-computed power score for the current draft. Mirrors the server
+  // formula from saveDeck — useful while the player is mid-edit.
+  const draftPowerScore = useMemo(() => {
+    if (!factionId) return null;
+    const idsForFaction = factionSlots.map((s) => s.card_id);
+    const libraryRecord: Record<string, { rarity: Rarity }> = {};
+    for (const [id, card] of cardLibraryMap) {
+      libraryRecord[id] = { rarity: card.rarity };
+    }
+    // commander base_power isn't in the v1 commander_library shape; default
+    // to 0 to match the server. Will start contributing if/when commanders
+    // gain a base_power field.
+    return computeDeckPower(idsForFaction, libraryRecord, { base_power: 0 });
+  }, [factionId, factionSlots, cardLibraryMap]);
+
+  // Existing names, for the slot picker preview in SaveDeckModal.
+  const existingNamesBySlot = useMemo(() => {
+    const map: Record<SavedDeckSlotNumber, string | null> = { 1: null, 2: null, 3: null };
+    if (!factionId) return map;
+    for (const d of savedDecks) {
+      if (d.faction !== factionId) continue;
+      const s = d.slot_number;
+      if (s === 1 || s === 2 || s === 3) map[s] = d.name;
+    }
+    return map;
+  }, [savedDecks, factionId]);
+
+  // Pre-fill the modal when "Update Deck" is tapped on a filled slot.
+  const initialSlot: SavedDeckSlotNumber | undefined = editingDeck
+    ? editingDeck.slot_number
+    : (requestedSlot ?? undefined);
+  const initialName = editingDeck?.name;
+
+  const handleOpenSave = () => {
+    if (!factionId) return;
+    if (factionSlots.length !== DECK_SIZE) {
+      Alert.alert(
+        'Deck not ready',
+        `Save requires exactly ${DECK_SIZE} cards (currently ${factionSlots.length}).`,
+      );
+      return;
+    }
+    setEditingDeck(null);
+    setRequestedSlot(null);
+    setSaveModalVisible(true);
+  };
+
+  const handleConfirmSave = async (slot: SavedDeckSlotNumber, name: string) => {
+    if (!factionId || !profile?.selected_commander) {
+      Alert.alert('Cannot save', 'Pick a commander first.');
+      return;
+    }
+    if (factionSlots.length !== DECK_SIZE) {
+      Alert.alert(
+        'Deck not ready',
+        `Save requires exactly ${DECK_SIZE} cards (currently ${factionSlots.length}).`,
+      );
+      return;
+    }
+    setSaveBusy(true);
+    try {
+      // If the chosen slot is already occupied AND we're not in update
+      // mode, treat the save as an update of that existing deck so we
+      // don't violate any future per-slot uniqueness invariant.
+      const existingForSlot = savedDecks.find(
+        (d) => d.faction === factionId && d.slot_number === slot,
+      );
+      const result = await callSaveDeck({
+        deck_id: editingDeck?.deck_id ?? existingForSlot?.deck_id ?? null,
+        slot_number: slot,
+        name,
+        faction: factionId,
+        commander_id: profile.selected_commander,
+        card_ids: factionSlots.map((s) => s.card_id),
+      });
+      // After saving, also point active_saved_deck_id at this deck so the
+      // player's "currently selected" deck is the one they just saved.
+      try {
+        await callSetActiveSavedDeck(result.deck_id);
+      } catch (err) {
+        console.warn('setActiveSavedDeck after save failed', err);
+      }
+      setSaveModalVisible(false);
+      setEditingDeck(null);
+      setRequestedSlot(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert('Could not save deck', msg);
+    } finally {
+      setSaveBusy(false);
+    }
+  };
+
+  const handleUseDeck = async (deck: SavedDeck) => {
+    if (!user) return;
+    setActionLoading(true);
+    try {
+      // Set as active first so an interrupted sync doesn't leave the
+      // player pointing at the old deck.
+      await callSetActiveSavedDeck(deck.deck_id);
+      await syncActiveDeckBuffer(user.uid, deck.faction, deck.card_ids);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert('Could not switch deck', msg);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteDeck = async (deck: SavedDeck) => {
+    if (deck.slot_number === 1) {
+      Alert.alert(
+        'Cannot delete slot 1',
+        'Slot 1 is your default deck for this faction. Overwrite it with a new build instead.',
+      );
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await callDeleteSavedDeck(deck.deck_id);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert('Could not delete deck', msg);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSelectEmptySlot = (slot: SavedDeckSlotNumber) => {
+    setEditingDeck(null);
+    setRequestedSlot(slot);
+    setSaveModalVisible(true);
+  };
+
   // Phase 9.4.4: Guild Hall is collection management — show every faction the
   // player can play in Solo (campaign-unlocked + threshold-unlocked).
   // Campaign UI still reads unlocked_factions directly.
@@ -298,12 +456,48 @@ export default function GuildHallScreen() {
             onSelectCommander={handleSelectCommander}
           />
 
+          <SavedDecksList
+            factionId={factionId}
+            factionColor={accent}
+            decks={savedDecks}
+            activeDeckId={profile?.active_saved_deck_id ?? null}
+            onUseDeck={handleUseDeck}
+            onDeleteDeck={handleDeleteDeck}
+            onSelectEmptySlot={handleSelectEmptySlot}
+          />
+
           <DeckStrip
             deckSlots={factionSlots}
             cardLibraryMap={cardLibraryMap}
             factionColorMap={factionColorMap}
             onRemoveSlot={handleRemoveSlot}
+            powerScore={draftPowerScore}
+            accentColor={accent}
           />
+
+          <View style={styles.saveBar}>
+            <Pressable
+              onPress={handleOpenSave}
+              disabled={factionSlots.length !== DECK_SIZE}
+              style={[
+                styles.saveBtn,
+                factionSlots.length === DECK_SIZE
+                  ? { backgroundColor: accent }
+                  : { backgroundColor: '#1f1f24' },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.saveBtnText,
+                  factionSlots.length === DECK_SIZE
+                    ? { color: '#111' }
+                    : { color: '#666' },
+                ]}
+              >
+                Save Deck
+              </Text>
+            </Pressable>
+          </View>
 
           <InventoryFilters
             selectedFilter={filter}
@@ -320,6 +514,24 @@ export default function GuildHallScreen() {
               deckIsFull={deckSize >= DECK_SIZE}
             />
           </View>
+
+          <SaveDeckModal
+            visible={saveModalVisible}
+            factionName={factionMeta?.name ?? factionId}
+            factionColor={accent}
+            existingNamesBySlot={existingNamesBySlot}
+            initialSlot={initialSlot}
+            initialName={initialName}
+            isUpdating={!!editingDeck}
+            busy={saveBusy}
+            onCancel={() => {
+              if (saveBusy) return;
+              setSaveModalVisible(false);
+              setEditingDeck(null);
+              setRequestedSlot(null);
+            }}
+            onConfirm={handleConfirmSave}
+          />
         </>
       )}
     </SafeAreaView>
@@ -381,6 +593,24 @@ const styles = StyleSheet.create({
   },
   gridWrap: {
     flex: 1,
+  },
+  saveBar: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#161616',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#222',
+  },
+  saveBtn: {
+    paddingVertical: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
   fullCenter: {
     flex: 1,
