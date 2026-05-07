@@ -83,7 +83,6 @@ export function CommanderPicker({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Commander</Text>
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator color="#666" size="small" />
@@ -112,9 +111,6 @@ export function CommanderPicker({
                 <Text style={styles.name} numberOfLines={1}>
                   {c.name}
                 </Text>
-                <Text style={styles.lane} numberOfLines={1}>
-                  {c.lane}
-                </Text>
               </Pressable>
             );
           })}
@@ -127,18 +123,11 @@ export function CommanderPicker({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  header: {
-    color: '#bbb',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    marginBottom: 6,
+    paddingTop: 6,
+    paddingBottom: 4,
   },
   loading: {
-    height: 100,
+    height: 70,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -152,7 +141,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#333',
-    padding: 8,
+    padding: 6,
     alignItems: 'center',
   },
   dim: {
@@ -160,20 +149,15 @@ const styles = StyleSheet.create({
   },
   art: {
     width: '100%',
-    aspectRatio: 1,
+    height: 56,
     borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   name: {
     color: '#fff',
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
-  },
-  lane: {
-    color: '#888',
-    fontSize: 9,
-    marginTop: 2,
   },
 });
