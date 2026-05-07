@@ -142,6 +142,25 @@ service cloud.firestore {
       }
     }
 
+    // === PLAYER SAVED DECKS (Phase 9.4.5) ===
+    // 3 deck slots per faction (max 18 docs per uid). Owner-readable for
+    // Guild Hall + match flow. All writes go through Cloud Functions
+    // (saveDeck / deleteSavedDeck / setActiveSavedDeck) for power-score
+    // computation, ownership validation, and 4-copy enforcement.
+    //
+    // Battle Mode opponent matchmaking reads other players' saved decks via
+    // Admin SDK (bypasses rules). Direct cross-uid reads from clients are
+    // not allowed.
+    match /player_saved_decks/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+
+      match /decks/{deckId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+    }
+
     // === PLAYER CAMPAIGN PROGRESS ===
     // One doc per player tracking faction stage completions, first-win timestamps,
     // and reward-claim flags. Created and updated only by Cloud Functions

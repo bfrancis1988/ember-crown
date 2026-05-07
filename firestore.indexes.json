@@ -7,6 +7,23 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "updated_at", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "decks",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "faction", "order": "ASCENDING" },
+        { "fieldPath": "battle_mode_eligible", "order": "ASCENDING" },
+        { "fieldPath": "power_score", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "decks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "faction", "order": "ASCENDING" },
+        { "fieldPath": "slot_number", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

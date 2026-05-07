@@ -17,6 +17,14 @@ export type PlayerProfile = {
   solo_unlocked_factions?: string[];
   tutorial_reward_claimed: boolean;
   tutorial_completed: boolean;
+  // Phase 9.4.5: saved decks. The deck the player has currently selected
+  // for matches (Solo/Campaign/Battle Mode). Defaults to slot 1 of the
+  // active faction. Set by SavedDecksList "Use This Deck" action.
+  active_saved_deck_id?: string;
+  // Phase 9.4.5: privacy opt-in for Battle Mode. Defaults true. UI to
+  // toggle ships in Phase 9.5. When false, this player's saved decks are
+  // excluded from other players' Battle Mode opponent pool.
+  battle_mode_decks_shareable?: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

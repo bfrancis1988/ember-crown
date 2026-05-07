@@ -20,3 +20,6 @@ export { setActiveFaction } from './profile/setActiveFaction';
 export { summonCard } from './economy/summonCard';
 export { craftCard } from './economy/craftCard';
 export { disenchantCard } from './economy/disenchantCard';
+export { saveDeck } from './decks/saveDeck';
+export { deleteSavedDeck } from './decks/deleteSavedDeck';
+export { setActiveSavedDeck } from './decks/setActiveSavedDeck';
