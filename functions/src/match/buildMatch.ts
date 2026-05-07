@@ -7,6 +7,17 @@ import { STARTING_HAND_SIZE, DECK_SIZE, type Lane } from '../lib/matchConstants'
 import type { LiveBoardState, LocationState } from '../types/board';
 import { laneToLocationState } from '../types/board';
 import type { Side } from '../types/match';
+import type { Rarity } from '../lib/banners';
+
+// Phase 9.4.3B — rarity cap for AI deck composition. Order matters; index is
+// the comparison key (Common=0, Legendary=4).
+const RARITY_ORDER: readonly Rarity[] = [
+  'Common',
+  'Uncommon',
+  'Rare',
+  'Epic',
+  'Legendary',
+] as const;
 
 // Server writes use FieldValue.serverTimestamp(); reads always come back as
 // Timestamp. Widen the input type so the cast lives at the call site only.
@@ -16,10 +27,16 @@ type WriteTimestamp = Timestamp | FieldValue;
  * Pull a random pool of Unit cards from card_library for the given faction
  * and sample 15. If the faction has fewer than 15 units, sample with
  * replacement — the bot deck is allowed to have duplicates in that edge case.
+ *
+ * Phase 9.4.3B — `maxRarity` (optional) caps the pool to cards at or below
+ * that rarity tier. Used to keep the AI from running Legendaries against a
+ * player who only owns Commons. If the cap leaves an empty pool, falls back
+ * to the unfiltered faction pool (defensive — shouldn't trigger if seeded).
  */
 export async function buildBotDeckCardIds(
   faction: string,
   db: Firestore,
+  maxRarity?: Rarity,
 ): Promise<string[]> {
   const snap = await db
     .collection('card_library')
@@ -27,9 +44,25 @@ export async function buildBotDeckCardIds(
     .where('card_type', '==', 'Unit')
     .get();
 
-  const pool = snap.docs.map((d) => d.data().card_id as string);
-  if (pool.length === 0) {
+  const allCards = snap.docs.map((d) => ({
+    card_id: d.data().card_id as string,
+    rarity: d.data().rarity as Rarity,
+  }));
+  if (allCards.length === 0) {
     throw new Error(`No Unit cards found in card_library for faction ${faction}`);
+  }
+
+  let pool: string[];
+  if (maxRarity) {
+    const maxIdx = RARITY_ORDER.indexOf(maxRarity);
+    const eligible = allCards.filter(
+      (c) => RARITY_ORDER.indexOf(c.rarity) <= maxIdx,
+    );
+    pool = eligible.length > 0
+      ? eligible.map((c) => c.card_id)
+      : allCards.map((c) => c.card_id);
+  } else {
+    pool = allCards.map((c) => c.card_id);
   }
 
   const picks: string[] = [];
@@ -48,6 +81,43 @@ export async function buildBotDeckCardIds(
     }
   }
   return picks;
+}
+
+/**
+ * Phase 9.4.3B — read player inventory and return the highest rarity they own
+ * (any quantity_owned >= 1). Returns 'Uncommon' as the floor for fresh
+ * accounts so the tutorial / first solo match stays friendly.
+ */
+export async function getPlayerBestOwnedRarity(
+  uid: string,
+  db: Firestore,
+): Promise<Rarity> {
+  const inventorySnap = await db
+    .collection('player_inventories')
+    .doc(uid)
+    .collection('cards')
+    .get();
+
+  if (inventorySnap.empty) return 'Uncommon';
+
+  const ownedCardIds = inventorySnap.docs
+    .filter((d) => (d.data().quantity_owned ?? 0) >= 1)
+    .map((d) => d.id);
+
+  if (ownedCardIds.length === 0) return 'Uncommon';
+
+  // Look up rarities. card_library is keyed by card_id.
+  const refs = ownedCardIds.map((id) => db.collection('card_library').doc(id));
+  const docs = await db.getAll(...refs);
+
+  let bestIdx = RARITY_ORDER.indexOf('Uncommon');
+  for (const d of docs) {
+    if (!d.exists) continue;
+    const rarity = d.data()!.rarity as Rarity;
+    const idx = RARITY_ORDER.indexOf(rarity);
+    if (idx > bestIdx) bestIdx = idx;
+  }
+  return RARITY_ORDER[bestIdx];
 }
 
 /**

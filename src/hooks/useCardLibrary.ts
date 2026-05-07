@@ -1,6 +1,6 @@
 // src/hooks/useCardLibrary.ts
 // Phase 4.5: one-shot fetch + module-level cache of the static card_library
-// collection (88 docs). Subscriptions are intentionally avoided — the library
+// collection. Subscriptions are intentionally avoided — the library
 // doesn't change during a session. Inventory ownership is layered on at the
 // consumer via usePlayerInventory.
 

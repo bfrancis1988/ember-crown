@@ -18,6 +18,7 @@ import {
   pickBotCommander,
   buildBoardStateDocs,
   pickFirstTurn,
+  getPlayerBestOwnedRarity,
 } from './buildMatch';
 import { executeAITurnInternal } from './executeAITurn';
 import {
@@ -143,11 +144,19 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
       }
       playerACardIds = deckSnap.docs.map((d) => d.data().card_id as string);
 
-      // 3. Bot side
+      // 3. Bot side. Phase 9.4.3B — cap bot deck rarity at the player's best
+      // owned rarity. Stops a fresh-account player with only Common/Uncommon
+      // cards from facing a bot deck full of Legendaries.
       const botFaction = profile.active_faction as string;
-      playerBCardIds = await buildBotDeckCardIds(botFaction, db);
+      const maxRarity = await getPlayerBestOwnedRarity(uid, db);
+      playerBCardIds = await buildBotDeckCardIds(botFaction, db, maxRarity);
       playerACommanderId = profile.selected_commander as string;
       botCommanderId = await pickBotCommander(botFaction, db);
+      logger.info('Bot deck capped by player rarity', {
+        uid,
+        bot_faction: botFaction,
+        max_rarity: maxRarity,
+      });
     }
 
     // Resolve boss rules (campaign-only). These shape match init: pre-activate

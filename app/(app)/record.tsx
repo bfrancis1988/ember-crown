@@ -29,10 +29,10 @@ import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
 import { usePlayerWallet } from '../../src/hooks/usePlayerWallet';
 import { usePlayerInventory } from '../../src/hooks/usePlayerInventory';
 import { useCampaignProgress } from '../../src/hooks/useCampaignProgress';
+import { useCardLibrary } from '../../src/hooks/useCardLibrary';
 import { FACTIONS } from '../../src/lib/factions';
 import type { MatchSession, MatchMode } from '../../src/types/match';
 
-const TOTAL_CARDS = 88;
 const TOTAL_FACTIONS = 6;
 const TOTAL_COMMANDERS = 18;
 const TOTAL_CAMPAIGN_STAGES = 54;
@@ -60,6 +60,9 @@ export default function RecordScreen() {
   const { wallet, isLoading: walletLoading } = usePlayerWallet();
   const { inventory, isLoading: inventoryLoading } = usePlayerInventory();
   const { progress, isLoading: progressLoading } = useCampaignProgress();
+  // Phase 9.4.3C — total card count comes from card_library, not a hardcoded
+  // constant. The library grows over time (88 → 144 in 9.4.2).
+  const { cards: cardLibrary, isLoading: cardLibraryLoading } = useCardLibrary();
 
   const [matchStats, setMatchStats] = useState<MatchStats>(EMPTY_MATCH_STATS);
   const [matchStatsLoading, setMatchStatsLoading] = useState(true);
@@ -114,12 +117,18 @@ export default function RecordScreen() {
   }, [user]);
 
   const isLoading =
-    profileLoading || walletLoading || inventoryLoading || progressLoading;
+    profileLoading ||
+    walletLoading ||
+    inventoryLoading ||
+    progressLoading ||
+    cardLibraryLoading;
 
   // ─── Derived values ──────────────────────────────────────────────────
 
   const cardsOwned = inventory.length;
-  const cardsOwnedPct = Math.round((cardsOwned / TOTAL_CARDS) * 100);
+  const totalCards = cardLibrary.length;
+  const cardsOwnedPct =
+    totalCards > 0 ? Math.round((cardsOwned / totalCards) * 100) : 0;
 
   const factionsUnlocked = profile?.unlocked_factions?.length ?? 1;
   // Each unlocked faction grants its 3 commanders. v1 commander unlock is
@@ -199,7 +208,7 @@ export default function RecordScreen() {
           </Section>
 
           <Section title="Collection">
-            <Stat label="Cards owned" value={`${cardsOwned} of ${TOTAL_CARDS} (${cardsOwnedPct}%)`} />
+            <Stat label="Cards owned" value={`${cardsOwned} of ${totalCards} (${cardsOwnedPct}%)`} />
             <Stat label="Factions unlocked" value={`${factionsUnlocked} of ${TOTAL_FACTIONS}`} />
             <Stat label="Commanders unlocked" value={`${commandersUnlocked} of ${TOTAL_COMMANDERS}`} />
             <Stat label="Campaign stages cleared" value={`${stagesCleared} of ${TOTAL_CAMPAIGN_STAGES}`} />

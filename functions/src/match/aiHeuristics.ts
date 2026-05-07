@@ -4,8 +4,11 @@
 //
 // Standard difficulty heuristic (ported from base44):
 //   1. Empty hand → pass.
-//   2. Hand > 8 → 20% chance to pass tactically (preserve cards for later rounds).
-//   3. Otherwise pick the strongest card and route it to a lane via:
+//   2. Opponent has passed this round → defensive mode (Phase 9.4.3A):
+//        - Already winning ≥ 2 lanes → pass (save hand for next round).
+//        - Find minimum play that flips a lane to winning. Pass if none exists.
+//   3. Hand > 8 → 20% chance to pass tactically (preserve cards for later rounds).
+//   4. Otherwise pick the strongest card and route it to a lane via:
 //        Priority 1: Flip a losing lane (where playPower closes the gap).
 //        Priority 2: Break a tie.
 //        Priority 3: Reinforce slimmest lead.
@@ -41,6 +44,13 @@ export function decideAIAction(
   session: MatchSession,
 ): AIDecision {
   if (hand.length === 0) return { action: 'PASS' };
+
+  // Phase 9.4.3A — Defensive mode when the human has passed for the round.
+  // Avoids dumping the rest of the hand into a round we either already won
+  // or can't reach with the cards available.
+  if (session.player_a_passed) {
+    return decideAfterOpponentPass(hand, laneCards, session);
+  }
 
   if (hand.length > 8) {
     const roll = Math.floor(Math.random() * 10) + 1;
@@ -98,6 +108,80 @@ export function decideAIAction(
   }
 
   return { action: 'PLAY', instanceId: chosen.instance_id, targetLane: bestLane };
+}
+
+// Phase 9.4.3A — defensive logic: AI plays the minimum needed to win the
+// round (or passes if it's already winning, or if no card can flip a lane).
+function decideAfterOpponentPass(
+  hand: HandCard[],
+  laneCards: LaneCard[],
+  session: MatchSession,
+): AIDecision {
+  const currentWinning = countAIWinningLanes(laneCards, session);
+
+  // Already winning the round (≥2 of 3 lanes) — pass and save the hand.
+  if (currentWinning >= 2) return { action: 'PASS' };
+
+  type Candidate = {
+    instanceId: string;
+    lane: Lane;
+    winningCount: number;
+    basePower: number;
+  };
+  const candidates: Candidate[] = [];
+
+  for (const card of hand) {
+    for (const lane of LANES) {
+      const loc = lane.toLowerCase() as LaneLoc;
+      const simulated: LaneCard[] = [
+        ...laneCards,
+        {
+          instance_id: card.instance_id,
+          owner: 'player_b',
+          card_id: card.card_id,
+          location_state: loc,
+          current_power: card.base_power,
+        },
+      ];
+      const hypWinning = countAIWinningLanes(simulated, session);
+      if (hypWinning > currentWinning) {
+        candidates.push({
+          instanceId: card.instance_id,
+          lane,
+          winningCount: hypWinning,
+          basePower: card.base_power,
+        });
+      }
+    }
+  }
+
+  if (candidates.length === 0) return { action: 'PASS' };
+
+  // Pick: flip the most lanes; on ties prefer the weakest card (save power
+  // for later rounds); deterministic tiebreak by instance_id.
+  candidates.sort((a, b) => {
+    if (b.winningCount !== a.winningCount) return b.winningCount - a.winningCount;
+    if (a.basePower !== b.basePower) return a.basePower - b.basePower;
+    return a.instanceId.localeCompare(b.instanceId);
+  });
+
+  return {
+    action: 'PLAY',
+    instanceId: candidates[0].instanceId,
+    targetLane: candidates[0].lane,
+  };
+}
+
+function countAIWinningLanes(
+  laneCards: LaneCard[],
+  session: MatchSession,
+): number {
+  const scores = computeLaneScores(laneCards, session);
+  let count = 0;
+  for (const loc of ['melee', 'ranged', 'siege'] as const) {
+    if (scores.player_b[loc] > scores.player_a[loc]) count++;
+  }
+  return count;
 }
 
 function computeLaneScores(
