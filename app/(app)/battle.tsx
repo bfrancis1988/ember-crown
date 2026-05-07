@@ -108,6 +108,15 @@ export default function BattleHubScreen() {
           ctaTone="secondary"
           onPress={() => router.push('/campaign')}
         />
+
+        <HeroCard
+          accent="#8a5a8a"
+          title="Battle Mode"
+          subtitle="Battle decks built by other commanders. Same rewards as Solo."
+          cta="Find Battle"
+          ctaTone="secondary"
+          onPress={() => router.push('/battle-mode')}
+        />
       </ScrollView>
     </SafeAreaView>
   );

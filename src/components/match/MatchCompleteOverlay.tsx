@@ -47,6 +47,11 @@ type Props = {
   onClaimWithAd?: () => Promise<ClaimMatchRewardsWithAdResult>;
   onReturnHome: () => void;
   onReturnToCampaign?: () => void;
+  // Phase 9.4.5C: Battle Mode CTAs. "Return to Hub" goes to the Battle
+  // landing page; "Battle Again" re-enters the Battle Mode flow. Both
+  // optional — the overlay falls back to onReturnHome if missing.
+  onReturnToBattleHub?: () => void;
+  onBattleAgain?: () => void;
 };
 
 export function MatchCompleteOverlay({
@@ -58,6 +63,8 @@ export function MatchCompleteOverlay({
   onClaimWithAd,
   onReturnHome,
   onReturnToCampaign,
+  onReturnToBattleHub,
+  onBattleAgain,
 }: Props) {
   const [hasClaimed, setHasClaimed] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
@@ -79,6 +86,7 @@ export function MatchCompleteOverlay({
 
   const isTutorial = session.mode === 'tutorial';
   const isCampaign = session.mode === 'campaign';
+  const isBattleMode = session.mode === 'battle_mode';
 
   // Entrance animations: header scales in, rewards card fades in shortly
   // after the header lands, and the CTA pulses gently on a continuous loop.
@@ -508,6 +516,148 @@ export function MatchCompleteOverlay({
     );
   }
 
+  // ─── Battle Mode branch ───────────────────────────────────────────────
+  // Mirrors the solo flow (same rewards, same claim callable) but the
+  // post-match panel surfaces the opponent name + deck composition the
+  // player faced. Two CTAs: Battle Again (find a new opponent) and
+  // Return to Hub (back to /battle).
+  if (isBattleMode) {
+    const isWin = myWins > oppWins;
+    const isDraw = myWins === oppWins;
+    const battleResultText = isWin ? 'VICTORY' : isDraw ? 'DRAW' : 'DEFEAT';
+    const battleResultColor = isWin ? '#5cd35c' : isDraw ? '#bbb' : '#e05a5a';
+    const handleHub = onReturnToBattleHub ?? onReturnHome;
+    const handleAgain = onBattleAgain ?? handleHub;
+
+    const opponentName = session.battle_opponent_display_name ?? 'Opposing Commander';
+    const opponentPower = session.battle_opponent_power_score;
+    const opponentCardCount = session.battle_opponent_card_ids?.length ?? 0;
+
+    const renderOpponentPanel = () => (
+      <Animated.View style={[styles.rewards, rewardsAnimStyle]}>
+        <Text style={styles.rewardsHeader}>Opponent's Deck</Text>
+        <Text style={styles.opponentName}>{opponentName}</Text>
+        {opponentPower != null && (
+          <Text style={styles.opponentMeta}>
+            ⚡ {opponentPower} · {opponentCardCount} cards
+          </Text>
+        )}
+      </Animated.View>
+    );
+
+    const renderHubButtons = () => (
+      <>
+        <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
+          <TouchableOpacity
+            style={[styles.primaryButton, (isClaiming || isShowingAd) && styles.disabled]}
+            onPress={handleAgain}
+            disabled={isClaiming || isShowingAd}
+          >
+            <Text style={styles.primaryButtonText}>Battle Again</Text>
+          </TouchableOpacity>
+        </Animated.View>
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleHub}>
+          <Text style={styles.secondaryButtonText}>Return to Hub</Text>
+        </TouchableOpacity>
+      </>
+    );
+
+    // Reopened-after-claim guard.
+    if (alreadyClaimedFlag && !claimResult) {
+      return (
+        <View style={styles.backdrop}>
+          <View style={styles.modal}>
+            <Text style={styles.header}>Battle Complete</Text>
+            <Animated.Text style={[styles.result, { color: '#d4a04a' }, headerAnimStyle]}>
+              {battleResultText}
+            </Animated.Text>
+            <Text style={styles.stageSubtitle}>Battle Mode</Text>
+            <Text style={styles.stageSubtitle}>Rewards already claimed.</Text>
+            {renderOpponentPanel()}
+            {renderHubButtons()}
+          </View>
+        </View>
+      );
+    }
+
+    // Post-claim.
+    if (hasClaimed && claimResult) {
+      return (
+        <View style={styles.backdrop}>
+          <View style={styles.modal}>
+            <Text style={styles.header}>Battle Complete</Text>
+            <Animated.Text style={[styles.result, { color: battleResultColor }, headerAnimStyle]}>
+              {battleResultText}
+            </Animated.Text>
+            <Text style={styles.stageSubtitle}>Battle Mode</Text>
+            <Text style={styles.score}>
+              {myWins} <Text style={styles.scoreDash}>—</Text> {oppWins}
+            </Text>
+            <Animated.View style={[styles.rewards, rewardsAnimStyle]}>
+              <Text style={styles.rewardsHeader}>Rewards</Text>
+              <Text style={styles.rewardLine}>
+                <Text style={styles.rewardLabel}>Coins  </Text>
+                <Text style={styles.rewardValue}>+{claimResult.coins_earned}</Text>
+              </Text>
+              <Text style={styles.rewardLine}>
+                <Text style={styles.rewardLabel}>Shards </Text>
+                <Text style={styles.rewardValue}>+{claimResult.shards_earned}</Text>
+              </Text>
+            </Animated.View>
+            {renderOpponentPanel()}
+            {renderHubButtons()}
+          </View>
+        </View>
+      );
+    }
+
+    // Pre-claim.
+    const adCopy = isWin ? '▶ Watch Ad to Double Rewards' : '▶ Watch Ad to Bonus Rewards';
+    return (
+      <View style={styles.backdrop}>
+        <View style={styles.modal}>
+          <Text style={styles.header}>Battle Complete</Text>
+          <Animated.Text style={[styles.result, { color: battleResultColor }, headerAnimStyle]}>
+            {battleResultText}
+          </Animated.Text>
+          <Text style={styles.stageSubtitle}>Battle Mode</Text>
+          <Text style={styles.score}>
+            {myWins} <Text style={styles.scoreDash}>—</Text> {oppWins}
+          </Text>
+          {renderOpponentPanel()}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {adError ? <Text style={styles.error}>{adError}</Text> : null}
+          <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
+            <TouchableOpacity
+              style={[styles.primaryButton, (isClaiming || isShowingAd) && styles.disabled]}
+              onPress={handleSoloClaim}
+              disabled={isClaiming || isShowingAd}
+            >
+              {isClaiming ? (
+                <ActivityIndicator color="#111" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Claim Rewards</Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+          {adCtaAvailable ? (
+            <TouchableOpacity
+              style={[styles.adButton, (isClaiming || isShowingAd) && styles.disabled]}
+              onPress={handleWatchAd}
+              disabled={isClaiming || isShowingAd}
+            >
+              {isShowingAd ? (
+                <ActivityIndicator color="#d4a04a" />
+              ) : (
+                <Text style={styles.adButtonText}>{adCopy}</Text>
+              )}
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+
   // ─── Solo branch ──────────────────────────────────────────────────────
   // Mirrors the campaign branch shell (header → result → score → rewards
   // card → primary CTA). Solo rewards are server-computed, so pre-claim
@@ -834,6 +984,19 @@ const styles = StyleSheet.create({
   rewardValue: {
     color: '#d4a04a',
     fontWeight: '800',
+  },
+  opponentName: {
+    color: '#f5e7c2',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  opponentMeta: {
+    color: '#bbb',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+    textAlign: 'center',
   },
   ctaWrap: {
     width: '100%',

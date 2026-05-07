@@ -21,6 +21,7 @@ import {
   getPlayerBestOwnedRarity,
 } from './buildMatch';
 import { executeAITurnInternal } from './executeAITurn';
+import { resolveBattleOpponent } from './findBattleOpponent';
 import {
   TUTORIAL_PLAYER_DECK_CARD_IDS,
   TUTORIAL_BOT_DECK_CARD_IDS,
@@ -29,10 +30,14 @@ import {
 } from '../lib/tutorialDecks';
 import type { InitializeNewMatchResult } from '../types/actions';
 import type { CampaignStage } from '../types/campaign';
+import type { SavedDeck } from '../types/savedDeck';
 
 type InitializeNewMatchInput = {
-  mode?: 'solo' | 'tutorial' | 'campaign';
+  mode?: 'solo' | 'tutorial' | 'campaign' | 'battle_mode';
   stage_id?: string;
+  // Battle Mode: deck_id of the player's saved deck. Required when
+  // mode === 'battle_mode'.
+  player_deck_id?: string;
 };
 
 export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<InitializeNewMatchResult>>(
@@ -65,6 +70,11 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
     let playerACommanderId: string;
     let botCommanderId: string;
     let campaignStage: CampaignStage | null = null;
+    // Phase 9.4.5C: opponent metadata persisted on the match session for
+    // mode='battle_mode'. Lets the post-match UI show the deck the player
+    // faced + the anonymized opponent name.
+    let battleOpponentDeck: SavedDeck | null = null;
+    let battleOpponentDisplayName: string | null = null;
 
     if (mode === 'tutorial') {
       if (profile.tutorial_completed) {
@@ -131,6 +141,56 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
       // Player B uses stage's opponent configuration
       playerBCardIds = [...campaignStage.opponent_deck_card_ids];
       botCommanderId = campaignStage.opponent_commander_id;
+    } else if (mode === 'battle_mode') {
+      const playerDeckId = request.data?.player_deck_id;
+      if (!playerDeckId) {
+        throw new HttpsError(
+          'invalid-argument',
+          'player_deck_id is required for battle_mode.',
+        );
+      }
+      // Player side: load the saved deck the player chose for this match.
+      const playerDeckSnap = await db
+        .collection('player_saved_decks')
+        .doc(uid)
+        .collection('decks')
+        .doc(playerDeckId)
+        .get();
+      if (!playerDeckSnap.exists) {
+        throw new HttpsError('not-found', `Saved deck ${playerDeckId} not found.`);
+      }
+      const playerDeck = playerDeckSnap.data() as SavedDeck;
+      if (playerDeck.card_ids.length !== DECK_SIZE) {
+        throw new HttpsError(
+          'failed-precondition',
+          `Saved deck must have exactly ${DECK_SIZE} cards.`,
+        );
+      }
+      playerACardIds = [...playerDeck.card_ids];
+      playerACommanderId = playerDeck.commander_id;
+
+      // Opponent: matchmaking. Falls through to a fresh AI deck for the
+      // active faction if the saved-deck pool is empty (cold launch).
+      const resolved = await resolveBattleOpponent(uid, playerDeck, db);
+      if (resolved) {
+        battleOpponentDeck = resolved.opponentDeck;
+        battleOpponentDisplayName = resolved.opponentDisplayName;
+        playerBCardIds = [...resolved.opponentDeck.card_ids];
+        botCommanderId = resolved.opponentDeck.commander_id;
+      } else {
+        // Empty-pool fallback: behave like a solo match for the same
+        // faction. The match still has mode='battle_mode' so the post-
+        // match UI can route correctly; opponent_display_name is set to
+        // a generic placeholder.
+        const maxRarity = await getPlayerBestOwnedRarity(uid, db);
+        playerBCardIds = await buildBotDeckCardIds(playerDeck.faction, db, maxRarity);
+        botCommanderId = await pickBotCommander(playerDeck.faction, db);
+        battleOpponentDisplayName = 'Unknown Commander';
+        logger.info('Battle Mode pool empty; falling back to fresh AI', {
+          uid,
+          faction: playerDeck.faction,
+        });
+      }
     } else {
       // 2. Active deck (15 slots)
       const deckSnap = await db
@@ -244,6 +304,18 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
           : {}),
         ...(bossExtraRoundDraw !== undefined
           ? { bot_extra_round_draw: bossExtraRoundDraw }
+          : {}),
+        ...(battleOpponentDeck
+          ? {
+              battle_opponent_deck_id: battleOpponentDeck.deck_id,
+              battle_opponent_card_ids: [...battleOpponentDeck.card_ids],
+              battle_opponent_commander_id: battleOpponentDeck.commander_id,
+              battle_opponent_power_score: battleOpponentDeck.power_score,
+              battle_opponent_faction: battleOpponentDeck.faction,
+            }
+          : {}),
+        ...(battleOpponentDisplayName
+          ? { battle_opponent_display_name: battleOpponentDisplayName }
           : {}),
       },
       now,

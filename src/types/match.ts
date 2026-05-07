@@ -10,7 +10,7 @@ export type { ScriptedAction };
 export type MatchStatus = 'in_progress' | 'game_over';
 export type Side = 'player_a' | 'player_b';
 export type BotDifficulty = 'standard' | 'easy' | 'boss';
-export type MatchMode = 'solo' | 'tutorial' | 'campaign';
+export type MatchMode = 'solo' | 'tutorial' | 'campaign' | 'battle_mode';
 
 export type MatchSession = {
   match_id: string;
@@ -59,6 +59,14 @@ export type MatchSession = {
   bot_debuff_strength: number;
   bot_extra_round_draw: number;
 
+  // Phase 9.4.5C: persisted only when mode === 'battle_mode'.
+  battle_opponent_deck_id?: string;
+  battle_opponent_card_ids?: string[];
+  battle_opponent_commander_id?: string;
+  battle_opponent_display_name?: string;
+  battle_opponent_power_score?: number;
+  battle_opponent_faction?: string;
+
   created_at: Timestamp;
   updated_at: Timestamp;
 };
@@ -72,6 +80,12 @@ export type MatchSessionInit = Pick<MatchSession,
   stage_id?: string;
   bot_debuff_strength?: number;
   bot_extra_round_draw?: number;
+  battle_opponent_deck_id?: string;
+  battle_opponent_card_ids?: string[];
+  battle_opponent_commander_id?: string;
+  battle_opponent_display_name?: string;
+  battle_opponent_power_score?: number;
+  battle_opponent_faction?: string;
 };
 
 export function makeInitialMatchSession(init: MatchSessionInit, now: Timestamp): MatchSession {
@@ -80,6 +94,12 @@ export function makeInitialMatchSession(init: MatchSessionInit, now: Timestamp):
     stage_id,
     bot_debuff_strength,
     bot_extra_round_draw,
+    battle_opponent_deck_id,
+    battle_opponent_card_ids,
+    battle_opponent_commander_id,
+    battle_opponent_display_name,
+    battle_opponent_power_score,
+    battle_opponent_faction,
     ...rest
   } = init;
   return {
@@ -109,6 +129,24 @@ export function makeInitialMatchSession(init: MatchSessionInit, now: Timestamp):
     ...(stage_id !== undefined ? { stage_id } : {}),
     bot_debuff_strength: bot_debuff_strength ?? 2,
     bot_extra_round_draw: bot_extra_round_draw ?? 0,
+    ...(battle_opponent_deck_id !== undefined
+      ? { battle_opponent_deck_id }
+      : {}),
+    ...(battle_opponent_card_ids !== undefined
+      ? { battle_opponent_card_ids }
+      : {}),
+    ...(battle_opponent_commander_id !== undefined
+      ? { battle_opponent_commander_id }
+      : {}),
+    ...(battle_opponent_display_name !== undefined
+      ? { battle_opponent_display_name }
+      : {}),
+    ...(battle_opponent_power_score !== undefined
+      ? { battle_opponent_power_score }
+      : {}),
+    ...(battle_opponent_faction !== undefined
+      ? { battle_opponent_faction }
+      : {}),
     created_at: now,
     updated_at: now,
   };

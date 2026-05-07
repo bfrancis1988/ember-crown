@@ -49,7 +49,7 @@ type MatchStats = {
 const EMPTY_MATCH_STATS: MatchStats = {
   total: 0,
   capped: false,
-  byMode: { solo: 0, tutorial: 0, campaign: 0 },
+  byMode: { solo: 0, tutorial: 0, campaign: 0, battle_mode: 0 },
   wins: 0,
   finishedTotal: 0,
 };
@@ -87,7 +87,7 @@ export default function RecordScreen() {
         const stats: MatchStats = {
           total: snap.size,
           capped: snap.size === MATCH_QUERY_LIMIT,
-          byMode: { solo: 0, tutorial: 0, campaign: 0 },
+          byMode: { solo: 0, tutorial: 0, campaign: 0, battle_mode: 0 },
           wins: 0,
           finishedTotal: 0,
         };
@@ -185,11 +185,11 @@ export default function RecordScreen() {
               value={matchStatsLoading ? '—' : matchTotalLabel}
             />
             <Stat
-              label="Solo / Campaign / Tutorial"
+              label="Solo / Campaign / Battle / Tutorial"
               value={
                 matchStatsLoading
                   ? '—'
-                  : `${matchStats.byMode.solo} / ${matchStats.byMode.campaign} / ${matchStats.byMode.tutorial}`
+                  : `${matchStats.byMode.solo} / ${matchStats.byMode.campaign} / ${matchStats.byMode.battle_mode} / ${matchStats.byMode.tutorial}`
               }
             />
             <Stat

@@ -711,6 +711,8 @@ function MatchScreenInner() {
           onClaimWithAd={handleClaimWithAd}
           onReturnHome={() => router.replace('/home')}
           onReturnToCampaign={() => router.replace('/campaign')}
+          onReturnToBattleHub={() => router.replace('/battle')}
+          onBattleAgain={() => router.replace('/battle-mode')}
         />
       ) : null}
 

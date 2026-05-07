@@ -108,7 +108,10 @@ export const claimMatchRewardsWithAd = onCall<ClaimWithAdInput, Promise<ClaimWit
       const progressRef = db.collection('player_campaign_progress').doc(uid);
       const profileRef = db.collection('player_profiles').doc(uid);
 
-      if (session.mode === 'solo') {
+      if (session.mode === 'solo' || session.mode === 'battle_mode') {
+        // Phase 9.4.5C: Battle Mode reuses the solo reward baseline. No
+        // campaign progression, no faction unlocks — just the same coin
+        // baseline that solo matches pay.
         baseCoins = SOLO_WIN_COIN_BASELINE;
         baseShards = 0;
       } else if (session.mode === 'campaign') {
