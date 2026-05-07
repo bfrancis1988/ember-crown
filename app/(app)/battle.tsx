@@ -21,6 +21,8 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../src/lib/firebase';
+import { Analytics, fireOnceAnalyticsEvent } from '../../src/lib/analytics';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { useCanStartMatch } from '../../src/hooks/useCanStartMatch';
 import { useCampaignProgress } from '../../src/hooks/useCampaignProgress';
 import { FACTIONS } from '../../src/lib/factions';
@@ -30,6 +32,7 @@ const TOTAL_STAGES = 54;
 
 export default function BattleHubScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { readiness, profile } = useCanStartMatch();
   const { progress } = useCampaignProgress();
   const [isStartingSolo, setIsStartingSolo] = useState(false);
@@ -59,6 +62,11 @@ export default function BattleHubScreen() {
         'initializeNewMatch'
       );
       const result = await fn({});
+      if (user) {
+        fireOnceAnalyticsEvent(user.uid, 'first_match:solo', () =>
+          Analytics.firstMatch('solo'),
+        ).catch(() => {/* best-effort */});
+      }
       router.push(`/match/${result.data.match_id}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';

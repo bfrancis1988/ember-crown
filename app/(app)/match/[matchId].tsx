@@ -19,6 +19,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../../src/contexts/AuthContext';
 import { db, functions } from '../../../src/lib/firebase';
+import { Analytics, fireOnceAnalyticsEvent } from '../../../src/lib/analytics';
+import { usePlayerProfile } from '../../../src/hooks/usePlayerProfile';
 import { FACTIONS } from '../../../src/lib/factions';
 import { type Lane } from '../../../src/lib/matchConstants';
 import { useMatchSession } from '../../../src/hooks/useMatchSession';
@@ -90,6 +92,7 @@ function MatchScreenInner() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
   const router = useRouter();
   const { user } = useAuth();
+  const { profile } = usePlayerProfile();
 
   const { session, isLoading: sessionLoading, error: sessionError } =
     useMatchSession(matchId ?? null);
@@ -525,6 +528,7 @@ function MatchScreenInner() {
       'completeTutorial',
     );
     const result = await fn({ skipped: false });
+    Analytics.tutorialComplete();
     return result.data;
   }
 
@@ -535,6 +539,12 @@ function MatchScreenInner() {
       'recordCampaignWin',
     );
     const result = await fn({ match_id: matchId });
+    if (user && result.data?.is_first_win) {
+      const faction = profile?.active_faction ?? 'unknown';
+      fireOnceAnalyticsEvent(user.uid, 'first_campaign_win', () =>
+        Analytics.firstCampaignWin(faction),
+      ).catch(() => {/* best-effort */});
+    }
     return result.data;
   }
 

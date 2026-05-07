@@ -19,6 +19,8 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../src/lib/firebase';
+import { Analytics, fireOnceAnalyticsEvent } from '../../src/lib/analytics';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
 import { usePlayerSavedDecks } from '../../src/hooks/usePlayerSavedDecks';
 import { useSoloPlayableFactions } from '../../src/hooks/useSoloPlayableFactions';
@@ -28,6 +30,7 @@ import type { InitializeNewMatchResult } from '../../src/types/matchActions';
 
 export default function BattleModeScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { profile, isLoading: profileLoading } = usePlayerProfile();
   const { decks: savedDecks, isLoading: decksLoading } = usePlayerSavedDecks();
   const playableFactions = useSoloPlayableFactions();
@@ -82,6 +85,14 @@ export default function BattleModeScreen() {
         mode: 'battle_mode',
         player_deck_id: playerDeck.deck_id,
       });
+      if (user && selectedFaction) {
+        fireOnceAnalyticsEvent(user.uid, 'first_match:battle_mode', () =>
+          Analytics.firstMatch('battle_mode'),
+        ).catch(() => {/* best-effort */});
+        fireOnceAnalyticsEvent(user.uid, 'first_battle_mode_match', () =>
+          Analytics.firstBattleModeMatch(selectedFaction),
+        ).catch(() => {/* best-effort */});
+      }
       router.replace(`/match/${result.data.match_id}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';

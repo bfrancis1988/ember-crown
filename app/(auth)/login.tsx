@@ -15,7 +15,9 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Eye, EyeOff } from 'lucide-react-native';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { Analytics } from '../../src/lib/analytics';
 
 export default function LoginScreen() {
   const { signInWithEmail, signUpWithEmail } = useAuth();
@@ -50,6 +52,7 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     try {
       await signUpWithEmail(email.trim(), password);
+      Analytics.signup('email');
       router.replace('/home');
     } catch (err: any) {
       Alert.alert('Sign up failed', err?.message ?? 'Unknown error');
@@ -104,9 +107,11 @@ export default function LoginScreen() {
           accessibilityRole="button"
           accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
         >
-          <Text style={styles.passwordToggleText}>
-            {passwordVisible ? 'Hide' : 'Show'}
-          </Text>
+          {passwordVisible ? (
+            <EyeOff size={20} color="#bbb" />
+          ) : (
+            <Eye size={20} color="#bbb" />
+          )}
         </Pressable>
       </View>
 
@@ -183,8 +188,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   passwordToggle: {
+    width: 48,
     height: 48,
-    paddingHorizontal: 14,
     marginLeft: 8,
     marginBottom: 12,
     borderRadius: 8,
@@ -196,11 +201,6 @@ const styles = StyleSheet.create({
   },
   passwordTogglePressed: {
     opacity: 0.7,
-  },
-  passwordToggleText: {
-    color: '#bbb',
-    fontSize: 14,
-    fontWeight: '600',
   },
   forgotLink: {
     alignSelf: 'center',

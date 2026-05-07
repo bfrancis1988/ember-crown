@@ -23,6 +23,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../../src/lib/firebase';
+import { Analytics, fireOnceAnalyticsEvent } from '../../../src/lib/analytics';
+import { useAuth } from '../../../src/contexts/AuthContext';
 import { usePlayerProfile } from '../../../src/hooks/usePlayerProfile';
 import { useCampaignProgress } from '../../../src/hooks/useCampaignProgress';
 import {
@@ -45,6 +47,7 @@ type InitializeNewMatchInput = {
 
 export default function FactionStageMapScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { factionId: rawFactionId } = useLocalSearchParams<{ factionId: string }>();
   const factionId = (rawFactionId ?? '').replace(/_/g, ' ');
 
@@ -106,6 +109,11 @@ export default function FactionStageMapScreen() {
         mode: 'campaign',
         stage_id: selectedStage.stage_id,
       });
+      if (user) {
+        fireOnceAnalyticsEvent(user.uid, 'first_match:campaign', () =>
+          Analytics.firstMatch('campaign'),
+        ).catch(() => {/* best-effort */});
+      }
       // Replace the stage detail modal route with the match screen so back
       // navigation from the match returns to the stage map.
       setSelectedStage(null);
