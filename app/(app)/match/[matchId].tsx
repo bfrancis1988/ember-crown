@@ -27,6 +27,7 @@ import { LaneRow } from '../../../src/components/match/LaneRow';
 import { CommanderTile } from '../../../src/components/match/CommanderTile';
 import { HandFan } from '../../../src/components/match/HandFan';
 import { MatchCompleteOverlay } from '../../../src/components/match/MatchCompleteOverlay';
+import { SacrificeTargetSelector } from '../../../src/components/match/SacrificeTargetSelector';
 import {
   TutorialTooltipProvider,
   useTutorialTooltips,
@@ -104,36 +105,78 @@ function MatchScreenInner() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // Phase 9.4.2B — Ritual sacrifice picker. Holds the in-flight play
+  // intent (instanceId + lane) until the player picks a target or skips.
+  const [pendingRitual, setPendingRitual] = useState<{
+    instanceId: string;
+    lane: Lane;
+    cardName: string;
+  } | null>(null);
+
   const factionColorMap = useMemo(buildFactionColorMap, []);
 
   // One-time fetch of every card_library entry referenced by the live board.
   // Re-runs whenever a brand-new card_id appears (e.g., end-of-round draw).
+  // Phase 9.4.2B — Swarm-spawned tokens carry their display data inline on
+  // token_data; synthesise a CardLibraryEntry for each so render code can
+  // treat them uniformly with real cards.
   useEffect(() => {
     if (cards.length === 0) return;
+
+    // 1. Synthesise lib entries for tokens that aren't yet in the map.
+    const tokenSynth: Array<[string, CardLibraryEntry]> = [];
+    for (const c of cards) {
+      if (!c.is_token || !c.token_data) continue;
+      if (cardLibraryMap.has(c.card_id)) continue;
+      const synthetic: CardLibraryEntry = {
+        card_id: c.card_id,
+        card_name: c.token_data.card_name,
+        card_type: 'Unit',
+        faction: c.token_data.faction,
+        rarity: 'Common',
+        base_power: c.token_data.base_power,
+        image_url: '',
+        keywords: [],
+        keyword_params: {},
+        // Display label comes from token_data.klass (e.g. 'Swarm', 'Brood').
+        // Cast through UnitKlass — UI just renders the string.
+        klass: (c.token_data.klass ?? 'Warrior') as 'Warrior',
+        optimal_lane: 'Melee',
+        race: 'Token',
+      };
+      tokenSynth.push([c.card_id, synthetic]);
+    }
+
+    // 2. Real card_ids that need a Firestore fetch.
     const missing = cards
+      .filter((c) => !c.is_token)
       .map((c) => c.card_id)
       .filter((id, i, arr) => arr.indexOf(id) === i)
       .filter((id) => !cardLibraryMap.has(id));
-    if (missing.length === 0) return;
+
+    if (tokenSynth.length === 0 && missing.length === 0) return;
 
     let cancelled = false;
     (async () => {
       const fetched: Array<[string, CardLibraryEntry]> = [];
-      await Promise.all(
-        missing.map(async (id) => {
-          try {
-            const snap = await getDoc(doc(db, 'card_library', id));
-            if (snap.exists()) {
-              fetched.push([id, snap.data() as CardLibraryEntry]);
+      if (missing.length > 0) {
+        await Promise.all(
+          missing.map(async (id) => {
+            try {
+              const snap = await getDoc(doc(db, 'card_library', id));
+              if (snap.exists()) {
+                fetched.push([id, snap.data() as CardLibraryEntry]);
+              }
+            } catch (err) {
+              console.warn('card_library fetch failed', id, err);
             }
-          } catch (err) {
-            console.warn('card_library fetch failed', id, err);
-          }
-        }),
-      );
-      if (cancelled || fetched.length === 0) return;
+          }),
+        );
+      }
+      if (cancelled || (tokenSynth.length === 0 && fetched.length === 0)) return;
       setCardLibraryMap((prev) => {
         const next = new Map(prev);
+        for (const [id, entry] of tokenSynth) next.set(id, entry);
         for (const [id, entry] of fetched) next.set(id, entry);
         return next;
       });
@@ -386,14 +429,24 @@ function MatchScreenInner() {
 
   // ---- action handlers ----
 
-  async function handlePlayCard(instanceId: string, lane: Lane) {
+  async function handlePlayCard(
+    instanceId: string,
+    lane: Lane,
+    sacrificeTargetInstanceId: string | null = null,
+  ) {
     if (!matchId) return;
     setActionLoading(true);
     setActionError(null);
     try {
       const fn = httpsCallable(functions, 'playCardToLane');
-      await fn({ matchId, instanceId, targetLane: lane });
+      await fn({
+        matchId,
+        instanceId,
+        targetLane: lane,
+        sacrificeTargetInstanceId,
+      });
       setSelectedInstanceId(null);
+      setPendingRitual(null);
     } catch (err: any) {
       const msg = err?.message ?? 'Failed to play card.';
       setActionError(msg);
@@ -401,6 +454,27 @@ function MatchScreenInner() {
     } finally {
       setActionLoading(false);
     }
+  }
+
+  // Phase 9.4.2B — when the player taps a lane with a Ritual card selected,
+  // route through the sacrifice picker (mode='optional_single') OR
+  // pass-through directly to handlePlayCard (mode='all_in_lane' or no Ritual).
+  function handleLaneTap(instanceId: string, lane: Lane) {
+    const card = cards.find((c) => c.instance_id === instanceId);
+    if (!card) return;
+    const entry = cardLibraryMap.get(card.card_id);
+    const hasRitual =
+      entry?.card_type === 'Unit' && entry.keywords?.includes('ritual');
+    if (!hasRitual) {
+      handlePlayCard(instanceId, lane);
+      return;
+    }
+    const ritualParams = (entry.keyword_params?.ritual ?? {}) as { mode?: string };
+    if (ritualParams.mode === 'all_in_lane') {
+      handlePlayCard(instanceId, lane);
+      return;
+    }
+    setPendingRitual({ instanceId, lane, cardName: entry.card_name });
   }
 
   async function handlePass() {
@@ -548,7 +622,7 @@ function MatchScreenInner() {
             isCommanderActive={oppCommanderActiveLane === lane}
             isTappable={laneTappableFor(opponentSide)}
             onTapLane={() => {
-              if (selectedInstanceId) handlePlayCard(selectedInstanceId, lane);
+              if (selectedInstanceId) handleLaneTap(selectedInstanceId, lane);
             }}
           />
         ))}
@@ -575,7 +649,7 @@ function MatchScreenInner() {
             isCommanderActive={myCommanderActiveLane === lane}
             isTappable={laneTappableFor(viewerSide)}
             onTapLane={() => {
-              if (selectedInstanceId) handlePlayCard(selectedInstanceId, lane);
+              if (selectedInstanceId) handleLaneTap(selectedInstanceId, lane);
             }}
           />
         ))}
@@ -627,6 +701,29 @@ function MatchScreenInner() {
           onReturnToCampaign={() => router.replace('/campaign')}
         />
       ) : null}
+
+      <SacrificeTargetSelector
+        visible={pendingRitual !== null}
+        playedCard={
+          pendingRitual
+            ? { instance_id: pendingRitual.instanceId, card_name: pendingRitual.cardName }
+            : null
+        }
+        candidates={cards.filter(
+          (c) =>
+            c.owner === viewerSide &&
+            (c.location_state === 'melee' ||
+              c.location_state === 'ranged' ||
+              c.location_state === 'siege'),
+        )}
+        cardLibraryMap={cardLibraryMap}
+        factionColorMap={factionColorMap}
+        onSelect={(targetId) => {
+          if (!pendingRitual) return;
+          handlePlayCard(pendingRitual.instanceId, pendingRitual.lane, targetId);
+        }}
+        onCancel={() => setPendingRitual(null)}
+      />
     </View>
   );
 }
