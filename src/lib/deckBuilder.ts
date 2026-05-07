@@ -15,7 +15,8 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from './firebase';
 import type { FactionId } from './factions';
 
 const DECK_SIZE = 15;
@@ -79,18 +80,26 @@ export async function setActiveCommander(
   });
 }
 
-// Switching the active faction also clears selected_commander so the Guild Hall
-// doesn't briefly render a commander tile from the previous faction. The
-// CommanderPicker re-fetches on factionId change and the player picks a
-// commander from the new faction.
+// Switching the active faction routes through the setActiveFaction Cloud
+// Function (Phase 9.4.4-fix). The function validates the requested faction
+// is in the player's union of unlocked_factions ∪ solo_unlocked_factions,
+// then atomically updates active_faction and clears selected_commander
+// (so the Guild Hall doesn't briefly render a commander tile from the
+// previous faction).
+//
+// The firestore.rules clause that locks active_faction to null → non-null
+// transitions blocks direct client writes after onboarding; the Cloud
+// Function bypasses rules via the Admin SDK.
+//
+// uid is unused (the function takes the caller's auth.uid) but kept in the
+// signature so existing call sites don't need to change.
 export async function setActiveFaction(
-  uid: string,
-  factionId: FactionId
+  _uid: string,
+  factionId: FactionId,
 ): Promise<void> {
-  const profileRef = doc(db, 'player_profiles', uid);
-  await updateDoc(profileRef, {
-    active_faction: factionId,
-    selected_commander: null,
-    updated_at: serverTimestamp(),
-  });
+  const fn = httpsCallable<
+    { faction_id: string },
+    { success: true; active_faction: string }
+  >(functions, 'setActiveFaction');
+  await fn({ faction_id: factionId });
 }

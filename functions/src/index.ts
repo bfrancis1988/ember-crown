@@ -16,6 +16,7 @@ export { cleanupStaleMatches } from './match/cleanupStaleMatches';
 export { recordCampaignWin } from './match/recordCampaignWin';
 export { completeOnboardingFn } from './onboarding/completeOnboardingFn';
 export { completeTutorial } from './onboarding/completeTutorial';
+export { setActiveFaction } from './profile/setActiveFaction';
 export { summonCard } from './economy/summonCard';
 export { craftCard } from './economy/craftCard';
 export { disenchantCard } from './economy/disenchantCard';
