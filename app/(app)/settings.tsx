@@ -24,8 +24,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
+import { Eye, EyeOff } from 'lucide-react-native';
+import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
+import { functions } from '../../src/lib/firebase';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -37,6 +41,11 @@ export default function SettingsScreen() {
   const [isSavingUsername, setIsSavingUsername] = useState(false);
   const [isTogglingShare, setIsTogglingShare] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deletePasswordVisible, setDeletePasswordVisible] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const lastSeenUsernameRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -94,12 +103,48 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleDeleteAccount = () => {
-    // Phase 9.5C3 wires the full reauth+delete modal. Stub for 9.5A.
-    Alert.alert(
-      'Coming soon',
-      'Delete account flow ships in Phase 9.5C.',
-    );
+  const handleOpenDeleteModal = () => {
+    setDeletePassword('');
+    setDeletePasswordVisible(false);
+    setDeleteError(null);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!user || !user.email) {
+      setDeleteError('No signed-in user.');
+      return;
+    }
+    if (!deletePassword) {
+      setDeleteError('Enter your password to confirm.');
+      return;
+    }
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      // Reauthenticate first — required by Firebase Auth for sensitive ops.
+      const credential = EmailAuthProvider.credential(user.email, deletePassword);
+      await reauthenticateWithCredential(user, credential);
+      // Cloud Function: deletes Firestore data + auth user.
+      const fn = httpsCallable<Record<string, never>, { success: true }>(
+        functions,
+        'deleteUserAccount',
+      );
+      await fn({});
+      // Auth state change unmounts the (app) layout and routes to /login.
+      setDeleteModalOpen(false);
+    } catch (err: any) {
+      const code = err?.code as string | undefined;
+      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        setDeleteError('Incorrect password.');
+      } else if (code === 'auth/too-many-requests') {
+        setDeleteError('Too many attempts. Try again later.');
+      } else {
+        setDeleteError(err?.message ?? 'Could not delete account.');
+      }
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (isLoading || !profile) {
@@ -227,7 +272,7 @@ export default function SettingsScreen() {
             <Text style={styles.rowChevron}>›</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.row} onPress={handleDeleteAccount}>
+          <TouchableOpacity style={styles.row} onPress={handleOpenDeleteModal}>
             <View style={styles.rowMain}>
               <Text style={[styles.rowLabel, styles.dangerText]}>Delete Account</Text>
               <Text style={styles.rowHint}>Permanent. Cannot be undone.</Text>
@@ -236,6 +281,71 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Delete account confirmation modal */}
+      <Modal
+        visible={deleteModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isDeleting && setDeleteModalOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={[styles.modalTitle, styles.dangerText]}>Delete Account?</Text>
+            <Text style={styles.modalBody}>
+              This permanently deletes your account, decks, cards, and progress.
+              This cannot be undone.
+            </Text>
+            <Text style={styles.modalLabel}>Re-enter your password to confirm:</Text>
+            <View style={styles.modalPasswordRow}>
+              <TextInput
+                style={[styles.modalInput, styles.modalPasswordInput]}
+                value={deletePassword}
+                onChangeText={setDeletePassword}
+                placeholder="Password"
+                placeholderTextColor="#888"
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry={!deletePasswordVisible}
+                editable={!isDeleting}
+              />
+              <TouchableOpacity
+                onPress={() => setDeletePasswordVisible((v) => !v)}
+                style={styles.modalPasswordToggle}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                disabled={isDeleting}
+                accessibilityRole="button"
+                accessibilityLabel={deletePasswordVisible ? 'Hide password' : 'Show password'}
+              >
+                {deletePasswordVisible ? (
+                  <EyeOff size={18} color="#bbb" />
+                ) : (
+                  <Eye size={18} color="#bbb" />
+                )}
+              </TouchableOpacity>
+            </View>
+            {deleteError && <Text style={styles.modalError}>{deleteError}</Text>}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalSecondary}
+                onPress={() => setDeleteModalOpen(false)}
+                disabled={isDeleting}
+              >
+                <Text style={styles.modalSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalDanger, isDeleting && styles.disabled]}
+                onPress={handleConfirmDelete}
+                disabled={isDeleting}
+              >
+                <Text style={styles.modalDangerText}>
+                  {isDeleting ? 'Deleting…' : 'Delete Forever'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Username edit modal */}
       <Modal
@@ -438,6 +548,53 @@ const styles = StyleSheet.create({
   },
   modalPrimaryText: {
     color: '#111',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalBody: {
+    color: '#bbb',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  modalLabel: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  modalPasswordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalPasswordInput: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  modalPasswordToggle: {
+    width: 40,
+    height: 48,
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalError: {
+    color: '#e05a5a',
+    fontSize: 13,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  modalDanger: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#a83a3a',
+  },
+  modalDangerText: {
+    color: '#fff',
     fontSize: 15,
     fontWeight: '700',
   },

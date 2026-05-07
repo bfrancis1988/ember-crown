@@ -1,31 +1,54 @@
 // app/(app)/legal/terms.tsx
-// Phase 9.5A3: placeholder. Phase 9.5C1 swaps in a WebView pointed at the
-// real Termly URL.
+// Phase 9.5C1: WebView pointing at the Termly-hosted terms of service.
+// Brad replaces the placeholder URL with the real Termly URL once the
+// account is provisioned (Phase 10 final step verifies before submission).
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
 import { useRouter } from 'expo-router';
+
+// TODO Brad (Phase 10): replace with the real Termly URL after account setup.
+const TERMS_URL =
+  'https://app.termly.io/policy-viewer/policy.html?policyUUID=00000000-0000-0000-0000-000000000000';
 
 export default function TermsScreen() {
   const router = useRouter();
   return (
-    <View style={styles.root}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-        <Text style={styles.backText}>← Back</Text>
-      </TouchableOpacity>
-      <View style={styles.center}>
+    <SafeAreaView style={styles.root} edges={['top']}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={styles.backText}>← Back</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>Terms of Service</Text>
-        <Text style={styles.subtitle}>Coming in Phase 9.5C.</Text>
+        <View style={styles.spacer} />
       </View>
-    </View>
+      <WebView
+        source={{ uri: TERMS_URL }}
+        startInLoadingState
+        renderLoading={() => (
+          <View style={styles.loading}>
+            <ActivityIndicator color="#d4a04a" />
+          </View>
+        )}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: 20, paddingTop: 56, backgroundColor: 'transparent' },
-  back: { paddingVertical: 8 },
-  backText: { color: '#888', fontSize: 15, fontWeight: '500' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { color: '#fff', fontSize: 22, fontWeight: '700', marginBottom: 8 },
-  subtitle: { color: '#888', fontSize: 14 },
+  root: { flex: 1, backgroundColor: 'transparent' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#222',
+  },
+  backText: { color: '#888', fontSize: 15, fontWeight: '500', minWidth: 60 },
+  title: { flex: 1, color: '#fff', fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  spacer: { minWidth: 60 },
+  loading: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
 });
