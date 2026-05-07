@@ -15,6 +15,7 @@ import { parse } from 'csv-parse/sync';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Firestore } from 'firebase-admin/firestore';
 import { CAMPAIGN_STAGES } from './seed-data/campaign_stages';
+import { EXPANSION_CARDS, type ExpansionCard } from './seed-data/expansion_cards';
 
 // ---------- Setup ----------
 
@@ -166,6 +167,9 @@ function buildCardDoc(row: Record<string, string>) {
   const klass = row.Class;
   const basePower = row.Base_Power ? parseInt(row.Base_Power, 10) : 0;
 
+  // Phase 9.4.2A: every card_library doc gets keywords/keyword_params/
+  // optimal_lane_bonus fields. Existing CSV rows have no keyword data, so
+  // they default to empty arrays/objects and the standard +2 lane bonus.
   const base = {
     card_id: cardId,
     card_name: row.Card_Name,
@@ -175,6 +179,11 @@ function buildCardDoc(row: Record<string, string>) {
     base_power: basePower,
     klass,
     image_url: '',
+    keywords: [] as string[],
+    keyword_params: {} as Record<string, unknown>,
+    optimal_lane_bonus: 2,
+    ability_text: '',
+    flavor_text: '',
   };
 
   if (cardType === 'Unit') {
@@ -212,6 +221,27 @@ function buildCardDoc(row: Record<string, string>) {
   }
 
   throw new Error(`Unknown Card_Type "${cardType}" for ${cardId}`);
+}
+
+function buildExpansionCardDoc(card: ExpansionCard) {
+  const faction = normalizeFaction(card.faction);
+  return {
+    card_id: card.card_id,
+    card_name: card.card_name,
+    card_type: card.card_type,
+    faction,
+    rarity: card.rarity,
+    base_power: card.base_power,
+    klass: card.klass,
+    image_url: '',
+    optimal_lane: card.optimal_lane,
+    race: resolveRace(faction, card.klass, card.race),
+    keywords: card.keywords,
+    keyword_params: card.keyword_params,
+    optimal_lane_bonus: card.optimal_lane_bonus ?? 2,
+    ability_text: card.ability_text,
+    flavor_text: card.flavor_text,
+  };
 }
 
 // ---------- Commander transformation ----------
@@ -327,10 +357,27 @@ async function main() {
   console.log(`  ${cardRows.length} card rows, ${commanderRows.length} commander rows`);
 
   console.log('→ Transforming card data...');
-  const cardDocs = cardRows.map((row) => ({
+  const csvCardDocs = cardRows.map((row) => ({
     id: row.Card_ID,
     data: buildCardDoc(row),
   }));
+  const expansionCardDocs = EXPANSION_CARDS.map((card) => ({
+    id: card.card_id,
+    data: buildExpansionCardDoc(card),
+  }));
+  console.log(
+    `  ${csvCardDocs.length} CSV cards + ${expansionCardDocs.length} expansion cards = ${csvCardDocs.length + expansionCardDocs.length} total`
+  );
+
+  // Detect duplicate IDs across the two sources to fail loud, not silently overwrite.
+  const csvIds = new Set(csvCardDocs.map((d) => d.id));
+  const expansionDupes = expansionCardDocs.filter((d) => csvIds.has(d.id));
+  if (expansionDupes.length > 0) {
+    throw new Error(
+      `Expansion cards collide with CSV card_ids: ${expansionDupes.map((d) => d.id).join(', ')}`
+    );
+  }
+  const cardDocs = [...csvCardDocs, ...expansionCardDocs];
 
   console.log('→ Transforming commander data...');
   const commanderDocs = commanderRows.map((row) => ({

@@ -18,6 +18,22 @@ export type LiveBoardState = {
   location_state: LocationState;
   status_effect: string | null;
   created_at: Timestamp;
+  // Phase 9.4.2A — Veteran keyword permanently raises this per round.
+  // Treat undefined as 0 for lazy migration of pre-9.4.2 instances.
+  base_power_bonus?: number;
+  // Phase 9.4.2B — true for token units spawned by Swarm. Real cards omit it.
+  // Tokens have no card_library entry; their display + power data lives inline
+  // on `token_data` so calculatePower/render can treat them as synthesised
+  // CardLibraryEntry on the fly.
+  is_token?: boolean;
+  token_data?: TokenData;
+};
+
+export type TokenData = {
+  card_name: string;
+  faction: string;
+  base_power: number;
+  klass?: string; // optional display flavor (e.g. 'Swarm', 'Brood')
 };
 
 export function laneToLocationState(lane: Lane): 'melee' | 'ranged' | 'siege' {

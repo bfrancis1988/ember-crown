@@ -14,6 +14,14 @@ type CardBase = {
   rarity: Rarity;
   base_power: number;
   image_url: string;
+  // Phase 9.4.2A — present on every card_library doc after migration. The
+  // empty defaults are emitted by scripts/seed-firestore.ts for legacy rows.
+  keywords: string[];
+  keyword_params: Record<string, unknown>;
+  // Defaults to 2 (existing behavior). Legendaries set 3.
+  optimal_lane_bonus?: number;
+  ability_text?: string;
+  flavor_text?: string;
 };
 
 export type UnitCard = CardBase & {

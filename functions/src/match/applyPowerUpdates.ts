@@ -40,24 +40,55 @@ export async function recalculateMatchPower(
       card_id: data.card_id,
       location_state: data.location_state,
       current_power: data.current_power,
+      base_power_bonus: data.base_power_bonus,
     };
   });
 
-  // 3. card_library lookup for unique card_ids (matches initializeNewMatch's pattern).
-  const uniqueCardIds = [...new Set(cards.map((c) => c.card_id))];
-  const refs = uniqueCardIds.map((id) => db.collection('card_library').doc(id));
-  const cardSnaps = await db.getAll(...refs);
-
+  // Phase 9.4.2B — tokens have no card_library entry. Synthesize a power-calc
+  // shape from their inline token_data so the rest of the pipeline doesn't
+  // need to special-case them.
   const cardLibraryMap = new Map<string, CardLibraryDataForPowerCalc>();
-  for (const snap of cardSnaps) {
-    if (!snap.exists) continue;
-    const data = snap.data()!;
-    cardLibraryMap.set(data.card_id, {
-      card_id: data.card_id,
-      card_type: data.card_type,
-      base_power: data.base_power,
-      optimal_lane: data.optimal_lane,
-    });
+  const tokenCardIds = new Set<string>();
+  for (const d of boardSnap.docs) {
+    const data = d.data();
+    if (data.is_token && data.token_data) {
+      tokenCardIds.add(data.card_id);
+      cardLibraryMap.set(data.card_id, {
+        card_id: data.card_id,
+        card_type: 'Unit',
+        base_power: data.token_data.base_power ?? 0,
+        // Tokens never benefit from optimal_lane bonus — flat power.
+        optimal_lane: undefined,
+        optimal_lane_bonus: 0,
+        faction: data.token_data.faction,
+        keywords: [],
+        keyword_params: {},
+      });
+    }
+  }
+
+  // 3. card_library lookup for non-token unique card_ids.
+  const uniqueCardIds = [...new Set(cards.map((c) => c.card_id))].filter(
+    (id) => !tokenCardIds.has(id),
+  );
+  if (uniqueCardIds.length > 0) {
+    const refs = uniqueCardIds.map((id) => db.collection('card_library').doc(id));
+    const cardSnaps = await db.getAll(...refs);
+
+    for (const snap of cardSnaps) {
+      if (!snap.exists) continue;
+      const data = snap.data()!;
+      cardLibraryMap.set(data.card_id, {
+        card_id: data.card_id,
+        card_type: data.card_type,
+        base_power: data.base_power,
+        optimal_lane: data.optimal_lane,
+        optimal_lane_bonus: data.optimal_lane_bonus,
+        faction: data.faction,
+        keywords: data.keywords ?? [],
+        keyword_params: data.keyword_params ?? {},
+      });
+    }
   }
 
   // 4. Compute deltas only.

@@ -14,12 +14,16 @@ type PlayCardInput = {
   matchId: string;
   instanceId: string;
   targetLane: Lane;
+  // Phase 9.4.2B — present when the played card has the Ritual keyword and
+  // the player chose to sacrifice an allied unit. Null/omitted = play
+  // without sacrificing (or for all_in_lane Ritual cards which auto-resolve).
+  sacrificeTargetInstanceId?: string | null;
 };
 
 export const playCardToLane = onCall<PlayCardInput, Promise<PlayCardResult>>(
   { region: 'us-central1' },
   async (request) => {
-    const { matchId, instanceId, targetLane } = request.data;
+    const { matchId, instanceId, targetLane, sacrificeTargetInstanceId } = request.data;
 
     if (!matchId || !instanceId || !targetLane) {
       throw new HttpsError('invalid-argument', 'matchId, instanceId, targetLane are required.');
@@ -31,6 +35,8 @@ export const playCardToLane = onCall<PlayCardInput, Promise<PlayCardResult>>(
     const db = admin.firestore();
     const ctx = await validatePlayerAction(request, matchId, db);
 
-    return playCardHelper(matchId, instanceId, targetLane, ctx.callerSide, db);
+    return playCardHelper(matchId, instanceId, targetLane, ctx.callerSide, db, {
+      sacrificeTargetInstanceId: sacrificeTargetInstanceId ?? null,
+    });
   },
 );

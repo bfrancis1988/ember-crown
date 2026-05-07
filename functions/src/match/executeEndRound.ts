@@ -9,6 +9,12 @@ import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { MAX_ROUNDS, END_ROUND_DRAW_COUNT } from '../lib/matchConstants';
 import type { MatchSession } from '../types/match';
+import {
+  applyBurnAtRoundEnd,
+  applyVeteranAtRoundEnd,
+  type CardForBurn,
+  type CardForVeteran,
+} from './keywordEffects';
 
 export async function executeEndRoundInternal(
   matchId: string,
@@ -30,7 +36,7 @@ export async function executeEndRoundInternal(
   const currentRound = session.current_round;
   logger.info('executeEndRound: starting', { matchId, current_round: currentRound });
 
-  // === Step 1: Tally VP from in-lane cards ===
+  // === Step 1a: Load lane cards + card_library entries (used by Burn / Veteran / wipe) ===
   const laneSnap = await db.collection('live_board_state')
     .where('match_id', '==', matchId)
     .where('location_state', 'in', ['melee', 'ranged', 'siege'])
@@ -38,25 +44,86 @@ export async function executeEndRoundInternal(
 
   const laneCards = laneSnap.docs.map(d => d.data());
 
+  type CardLibForRoundEnd = {
+    base_power: number;
+    keywords?: string[];
+    keyword_params?: Record<string, unknown>;
+  };
+  const cardLibraryMap = new Map<string, CardLibForRoundEnd>();
+
+  // Phase 9.4.2B — synthesise lib entries for tokens (no card_library doc).
+  const tokenCardIds = new Set<string>();
+  for (const c of laneCards) {
+    if (c.is_token && c.token_data) {
+      tokenCardIds.add(c.card_id as string);
+      cardLibraryMap.set(c.card_id as string, {
+        base_power: (c.token_data as { base_power?: number }).base_power ?? 0,
+        keywords: [],
+        keyword_params: {},
+      });
+    }
+  }
+
+  const uniqueCardIds = [...new Set(laneCards.map(c => c.card_id as string))]
+    .filter(id => !tokenCardIds.has(id));
+  if (uniqueCardIds.length > 0) {
+    const cardRefs = uniqueCardIds.map(id => db.collection('card_library').doc(id));
+    const libSnaps = await db.getAll(...cardRefs);
+    for (const snap of libSnaps) {
+      if (!snap.exists) continue;
+      const data = snap.data()!;
+      cardLibraryMap.set(data.card_id, {
+        base_power: data.base_power,
+        keywords: data.keywords ?? [],
+        keyword_params: data.keyword_params ?? {},
+      });
+    }
+  }
+
+  const batch = db.batch();
+
+  // === Step 1b: Burn — fires BEFORE VP tally so destroyed units don't score ===
+  const burnInputCards: CardForBurn[] = laneCards.map(c => ({
+    instance_id: c.instance_id as string,
+    owner: c.owner as 'player_a' | 'player_b',
+    card_id: c.card_id as string,
+    location_state: c.location_state as 'melee' | 'ranged' | 'siege',
+    current_power: c.current_power as number,
+  }));
+  const burnResult = applyBurnAtRoundEnd({
+    matchId,
+    laneCards: burnInputCards,
+    cardLibraryMap,
+    batch,
+    db,
+  });
+
+  // === Step 2: Tally VP, excluding Burn-destroyed units and using post-burn power ===
   const laneTotals = {
     player_a: { melee: 0, ranged: 0, siege: 0 },
     player_b: { melee: 0, ranged: 0, siege: 0 },
   };
 
   for (const card of laneCards) {
+    if (burnResult.destroyed.has(card.instance_id as string)) continue;
+    const power = burnResult.updatedPowers.get(card.instance_id as string)
+      ?? (card.current_power as number);
     laneTotals[card.owner as 'player_a' | 'player_b'][card.location_state as 'melee' | 'ranged' | 'siege']
-      += card.current_power as number;
+      += power;
   }
 
-  // Commander buff: +1 per friendly card in the active commander's lane.
+  // Commander buff: +1 per friendly card (still in lane post-burn) in the active commander's lane.
+  const survivingLaneCards = laneCards.filter(
+    c => !burnResult.destroyed.has(c.instance_id as string),
+  );
   if (session.player_a_commander_active_lane) {
     const loc = session.player_a_commander_active_lane.toLowerCase() as 'melee' | 'ranged' | 'siege';
-    const count = laneCards.filter(c => c.owner === 'player_a' && c.location_state === loc).length;
+    const count = survivingLaneCards.filter(c => c.owner === 'player_a' && c.location_state === loc).length;
     laneTotals.player_a[loc] += count;
   }
   if (session.player_b_commander_active_lane) {
     const loc = session.player_b_commander_active_lane.toLowerCase() as 'melee' | 'ranged' | 'siege';
-    const count = laneCards.filter(c => c.owner === 'player_b' && c.location_state === loc).length;
+    const count = survivingLaneCards.filter(c => c.owner === 'player_b' && c.location_state === loc).length;
     laneTotals.player_b[loc] += count;
   }
 
@@ -73,12 +140,25 @@ export async function executeEndRoundInternal(
     matchId,
     round: currentRound,
     lane_totals: laneTotals,
+    burn_destroyed: burnResult.destroyed.size,
     vp_awarded: { player_a: aVP, player_b: bVP },
   });
 
-  // === Step 2: Build batch (VP + flag resets + board wipe) ===
-  const batch = db.batch();
+  // === Step 3: Veteran — fires at round-end (before wipe) on surviving units ===
+  const veteranInputCards: CardForVeteran[] = survivingLaneCards.map(c => ({
+    instance_id: c.instance_id as string,
+    card_id: c.card_id as string,
+    base_power_bonus: c.base_power_bonus as number | undefined,
+  }));
+  const newBonusByInstance = applyVeteranAtRoundEnd({
+    matchId,
+    laneCards: veteranInputCards,
+    cardLibraryMap,
+    batch,
+    db,
+  });
 
+  // === Step 4: Session resets + lane wipe ===
   const sessionUpdates: Record<string, unknown> = {
     player_a_wins: (session.player_a_wins || 0) + aVP,
     player_b_wins: (session.player_b_wins || 0) + bVP,
@@ -93,25 +173,22 @@ export async function executeEndRoundInternal(
     updated_at: FieldValue.serverTimestamp(),
   };
 
-  // Wipe lane cards → discard, with current_power reset to base_power.
-  // (D4 trigger skips non-lane cards, so the explicit reset prevents stale values.)
-  const uniqueCardIds = [...new Set(laneCards.map(c => c.card_id as string))];
-  if (uniqueCardIds.length > 0) {
-    const cardRefs = uniqueCardIds.map(id => db.collection('card_library').doc(id));
-    const libSnaps = await db.getAll(...cardRefs);
-    const basePowerMap = new Map<string, number>();
-    for (const snap of libSnaps) {
-      if (!snap.exists) continue;
-      const data = snap.data()!;
-      basePowerMap.set(data.card_id, data.base_power);
-    }
-    for (const card of laneCards) {
-      const ref = db.collection('live_board_state').doc(card.instance_id);
-      batch.update(ref, {
-        location_state: 'discard',
-        current_power: basePowerMap.get(card.card_id) ?? 0,
-      });
-    }
+  // Wipe lane cards → discard. Burn-destroyed units already wrote
+  // {discard, 0}, so skip them here to avoid stomping the same fields.
+  // current_power resets to (base_power + base_power_bonus) so Veteran gains
+  // carry into the next time the unit is played.
+  for (const card of laneCards) {
+    if (burnResult.destroyed.has(card.instance_id as string)) continue;
+    const lib = cardLibraryMap.get(card.card_id as string);
+    const baseP = lib?.base_power ?? 0;
+    const newBonus = newBonusByInstance.get(card.instance_id as string)
+      ?? (card.base_power_bonus as number | undefined)
+      ?? 0;
+    const ref = db.collection('live_board_state').doc(card.instance_id);
+    batch.update(ref, {
+      location_state: 'discard',
+      current_power: baseP + newBonus,
+    });
   }
 
   // === Step 3: Advance round OR end match ===

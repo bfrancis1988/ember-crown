@@ -58,9 +58,14 @@ export function MatchCard({
   const cur = card.current_power;
   const powerColor = cur > base ? '#5cd35c' : cur < base ? '#e05a5a' : '#f5e7c2';
 
+  // Phase 9.4.2B — tokens get a dimmer border + a "T" badge so they read
+  // as ephemeral compared to real cards.
+  const isToken = !!card.is_token;
+
   const containerStyle = [
     styles.card,
-    { borderColor },
+    { borderColor: isToken ? '#555' : borderColor },
+    isToken && styles.tokenCard,
     isSelected && styles.selected,
   ];
 
@@ -84,10 +89,16 @@ export function MatchCard({
         </View>
       ) : null}
 
-      {/* Rarity dot — top-right */}
-      <View style={[styles.rarityBadge, { backgroundColor: borderColor }]}>
-        <Text style={styles.rarityText}>{cardLibraryEntry.rarity[0]}</Text>
-      </View>
+      {/* Rarity dot — top-right (tokens show a "T" badge instead) */}
+      {isToken ? (
+        <View style={[styles.rarityBadge, styles.tokenBadge]}>
+          <Text style={styles.rarityText}>T</Text>
+        </View>
+      ) : (
+        <View style={[styles.rarityBadge, { backgroundColor: borderColor }]}>
+          <Text style={styles.rarityText}>{cardLibraryEntry.rarity[0]}</Text>
+        </View>
+      )}
 
       {/* Bottom overlay: name + power */}
       <View style={styles.overlay}>
@@ -142,6 +153,13 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 0 },
     elevation: 6,
+  },
+  tokenCard: {
+    opacity: 0.85,
+    borderStyle: 'dashed',
+  },
+  tokenBadge: {
+    backgroundColor: '#444',
   },
   pressed: {
     opacity: 0.7,
