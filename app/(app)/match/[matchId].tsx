@@ -38,6 +38,7 @@ import type { LiveBoardState } from '../../../src/types/board';
 import type { MatchSession, Side } from '../../../src/types/match';
 import type {
   ClaimMatchRewardsResult,
+  ClaimMatchRewardsWithAdResult,
   RecordCampaignWinResult,
 } from '../../../src/types/matchActions';
 
@@ -463,6 +464,16 @@ function MatchScreenInner() {
     return result.data;
   }
 
+  async function handleClaimWithAd(): Promise<ClaimMatchRewardsWithAdResult> {
+    if (!matchId) throw new Error('Missing matchId');
+    const fn = httpsCallable<{ match_id: string }, ClaimMatchRewardsWithAdResult>(
+      functions,
+      'claimMatchRewardsWithAd',
+    );
+    const result = await fn({ match_id: matchId });
+    return result.data;
+  }
+
   function handleRetreat() {
     Alert.alert(
       'Retreat?',
@@ -623,6 +634,7 @@ function MatchScreenInner() {
           onClaim={handleClaim}
           onCompleteTutorial={handleCompleteTutorial}
           onClaimCampaign={handleClaimCampaign}
+          onClaimWithAd={handleClaimWithAd}
           onReturnHome={() => router.replace('/home')}
           onReturnToCampaign={() => router.replace('/campaign')}
         />

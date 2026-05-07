@@ -42,3 +42,15 @@ export type RecordCampaignWinResult = {
   factions_unlocked: string[];
   next_stage_id: string | null;
 };
+
+// Phase 9.4 — bonus claim via rewarded video.
+export type ClaimMatchRewardsWithAdResult = {
+  success: true;
+  is_win: boolean;
+  coins_earned: number;
+  shards_earned: number;
+  keys_earned: number;
+  // Empty unless this was a campaign first-win on a stage with unlocks_factions.
+  factions_unlocked: string[];
+  wallet_after: { coins: number; shards: number; keys: number; dust: number };
+};
