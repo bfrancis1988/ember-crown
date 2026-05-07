@@ -61,6 +61,8 @@ service cloud.firestore {
         'selected_commander',
         'active_faction',
         'onboarding_step',
+        'battle_mode_decks_shareable',
+        'fired_analytics_events',
         'updated_at',
       ];
       let changedFields = request.resource.data.diff(resource.data).affectedKeys();

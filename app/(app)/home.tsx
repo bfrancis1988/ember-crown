@@ -299,15 +299,24 @@ function LandingView({ username, onSignOut, isSigningOut }: LandingViewProps) {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Settings link — bottom right. Routes to /profile until Session 5
-          ships /settings (unimplemented routes would 404). */}
+      {/* Settings link — bottom right. /settings ships in Phase 9.5A;
+          /profile remains accessible via __DEV__ for raw debug fields. */}
       <TouchableOpacity
         style={styles.settingsLink}
-        onPress={() => router.push('/profile')}
+        onPress={() => router.push('/settings')}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Text style={styles.settingsLinkText}>⚙ Settings</Text>
       </TouchableOpacity>
+      {__DEV__ && (
+        <TouchableOpacity
+          style={styles.devProfileLink}
+          onPress={() => router.push('/profile')}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.devProfileLinkText}>🛠 /profile</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -582,5 +591,16 @@ const styles = StyleSheet.create({
   settingsLinkText: {
     color: '#666',
     fontSize: 12,
+  },
+  devProfileLink: {
+    position: 'absolute',
+    bottom: 84,
+    left: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  devProfileLinkText: {
+    color: '#553',
+    fontSize: 11,
   },
 });

@@ -1,6 +1,9 @@
 // app/(app)/profile.tsx
 // Live profile screen. Subscribes to player_profiles/{uid} via usePlayerProfile.
 // Edits made here OR from the Firebase Console update the UI in real time.
+//
+// Phase 9.5A4: superseded by /settings as the player-facing entry. /profile
+// is now __DEV__-gated for raw debug fields (UID, onboarding step, ping test).
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -24,6 +27,17 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { profile, isLoading, updateProfile } = usePlayerProfile();
   const { wallet } = usePlayerWallet();
+
+  if (!__DEV__) {
+    return (
+      <View style={styles.containerCentered}>
+        <Text style={styles.metaText}>Settings has moved to ⚙ Settings.</Text>
+        <TouchableOpacity onPress={() => router.replace('/settings')} style={{ marginTop: 16 }}>
+          <Text style={styles.backText}>Open Settings →</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const [usernameDraft, setUsernameDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
