@@ -8,6 +8,7 @@ import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { CRAFT_DUST_COSTS, MAX_COPIES_PER_CARD } from '../lib/banners';
 import type { Rarity } from '../lib/banners';
+import { recomputeSoloUnlocks } from '../lib/factionUnlockHelpers';
 
 type CraftInput = { card_id: string };
 
@@ -18,6 +19,7 @@ type CraftResult = {
   dust_spent: number;
   quantity_owned_after: number;
   wallet_after: { coins: number; shards: number; keys: number; dust: number };
+  newly_unlocked_factions: string[];
 };
 
 export const craftCard = onCall<CraftInput, Promise<CraftResult>>(
@@ -45,6 +47,16 @@ export const craftCard = onCall<CraftInput, Promise<CraftResult>>(
 
     const result = await db.runTransaction(async (tx) => {
       const walletRef = db.collection('player_wallets').doc(uid);
+      const profileRef = db.collection('player_profiles').doc(uid);
+      const inventoryCol = db
+        .collection('player_inventories')
+        .doc(uid)
+        .collection('cards');
+      const inventoryRef = inventoryCol.doc(cardId);
+
+      // ALL READS FIRST. recomputeSoloUnlocks does its own tx.getAll then
+      // queues a tx.update, so any subsequent reads in this transaction would
+      // be invalid.
       const walletSnap = await tx.get(walletRef);
       if (!walletSnap.exists) {
         throw new HttpsError('failed-precondition', 'Wallet not found.');
@@ -59,11 +71,6 @@ export const craftCard = onCall<CraftInput, Promise<CraftResult>>(
         );
       }
 
-      const inventoryRef = db
-        .collection('player_inventories')
-        .doc(uid)
-        .collection('cards')
-        .doc(cardId);
       const inventorySnap = await tx.get(inventoryRef);
       const currentQuantity = inventorySnap.exists
         ? (inventorySnap.data()?.quantity_owned ?? 0)
@@ -77,6 +84,25 @@ export const craftCard = onCall<CraftInput, Promise<CraftResult>>(
       }
 
       const newQuantity = currentQuantity + 1;
+
+      // Read profile + full inventory for the solo-unlock recompute.
+      const profileSnap = await tx.get(profileRef);
+      const allInventorySnap = await tx.get(inventoryCol);
+
+      const postMutationInventory = new Map<string, number>();
+      allInventorySnap.forEach((d) => {
+        const qty = d.data()?.quantity_owned ?? 0;
+        if (qty >= 1) postMutationInventory.set(d.id, qty);
+      });
+      postMutationInventory.set(cardId, newQuantity);
+
+      const profile = profileSnap.exists ? profileSnap.data()! : {};
+      const recomputeResult = await recomputeSoloUnlocks(
+        tx,
+        uid,
+        profile,
+        postMutationInventory,
+      );
 
       tx.update(walletRef, {
         dust: FieldValue.increment(-dustCost),
@@ -106,6 +132,7 @@ export const craftCard = onCall<CraftInput, Promise<CraftResult>>(
         rarity,
         dust_spent: dustCost,
         quantity_owned_after: newQuantity,
+        newly_unlocked_factions: recomputeResult.newlyUnlocked,
       });
 
       return {
@@ -115,6 +142,7 @@ export const craftCard = onCall<CraftInput, Promise<CraftResult>>(
         dust_spent: dustCost,
         quantity_owned_after: newQuantity,
         wallet_after: walletAfter,
+        newly_unlocked_factions: recomputeResult.newlyUnlocked,
       };
     });
 

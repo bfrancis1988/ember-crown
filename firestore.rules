@@ -48,8 +48,13 @@ service cloud.firestore {
     //       to bypass wallet/inventory provisioning)
     //
     // Forbidden for client write (Cloud Functions / admin only):
-    //   unlocked_factions, tutorial_reward_claimed, tutorial_completed,
-    //   created_at, player_id
+    //   unlocked_factions, solo_unlocked_factions, tutorial_reward_claimed,
+    //   tutorial_completed, created_at, player_id
+    //
+    // The allowlist below is exhaustive — any field not listed (including
+    // solo_unlocked_factions, added in Phase 9.4.4) is automatically denied
+    // on client writes. The recompute helper writes solo_unlocked_factions
+    // via the Admin SDK from inside summonCard / craftCard transactions.
     function profileUpdateIsSafe() {
       let allowedFields = [
         'username',

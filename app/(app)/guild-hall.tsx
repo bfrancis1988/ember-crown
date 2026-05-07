@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
+import { useSoloPlayableFactions } from '../../src/hooks/useSoloPlayableFactions';
 import { usePlayerActiveDeck } from '../../src/hooks/usePlayerActiveDeck';
 import {
   useFactionInventory,
@@ -203,10 +204,12 @@ export default function GuildHallScreen() {
     }
   };
 
+  // Phase 9.4.4: Guild Hall is collection management — show every faction the
+  // player can play in Solo (campaign-unlocked + threshold-unlocked).
+  // Campaign UI still reads unlocked_factions directly.
+  const soloPlayableFactions = useSoloPlayableFactions();
   const unlockedFactions: FactionId[] =
-    profile?.unlocked_factions && profile.unlocked_factions.length > 0
-      ? (profile.unlocked_factions as FactionId[])
-      : [STARTER_FACTION];
+    soloPlayableFactions.length > 0 ? soloPlayableFactions : [STARTER_FACTION];
 
   // Top-level loading / error states.
   if (profileLoading) {

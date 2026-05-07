@@ -8,6 +8,7 @@ import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { BANNERS, MAX_COPIES_PER_CARD, DUPLICATE_DUST_VALUES } from '../lib/banners';
 import type { BannerId, Rarity } from '../lib/banners';
+import { recomputeSoloUnlocks } from '../lib/factionUnlockHelpers';
 
 type SummonInput = { bannerId: BannerId };
 
@@ -19,6 +20,7 @@ type SummonResult = {
   dust_gained?: number;
   quantity_owned_after: number;
   wallet_after: { coins: number; shards: number; keys: number; dust: number };
+  newly_unlocked_factions: string[];
 };
 
 export const summonCard = onCall<SummonInput, Promise<SummonResult>>(
@@ -71,6 +73,14 @@ export const summonCard = onCall<SummonInput, Promise<SummonResult>>(
 
     const result = await db.runTransaction(async (tx) => {
       const walletRef = db.collection('player_wallets').doc(uid);
+      const profileRef = db.collection('player_profiles').doc(uid);
+      const inventoryCol = db
+        .collection('player_inventories')
+        .doc(uid)
+        .collection('cards');
+
+      // ALL READS FIRST. Order matters for the recompute helper, which itself
+      // does a tx.getAll on card_library and then queues a tx.update.
       const walletSnap = await tx.get(walletRef);
       if (!walletSnap.exists) {
         throw new HttpsError('failed-precondition', 'Wallet not found.');
@@ -88,15 +98,15 @@ export const summonCard = onCall<SummonInput, Promise<SummonResult>>(
       const rarity = rollRarity();
       const cardId = rollCardId(rarity);
 
-      const inventoryRef = db
-        .collection('player_inventories')
-        .doc(uid)
-        .collection('cards')
-        .doc(cardId);
+      const inventoryRef = inventoryCol.doc(cardId);
       const inventorySnap = await tx.get(inventoryRef);
       const currentQuantity = inventorySnap.exists
         ? (inventorySnap.data()?.quantity_owned ?? 0)
         : 0;
+
+      // Read profile + full inventory for the solo-unlock recompute.
+      const profileSnap = await tx.get(profileRef);
+      const allInventorySnap = await tx.get(inventoryCol);
 
       const wouldBeQuantity = currentQuantity + 1;
       const convertedToDust = wouldBeQuantity > MAX_COPIES_PER_CARD;
@@ -115,6 +125,28 @@ export const summonCard = onCall<SummonInput, Promise<SummonResult>>(
           walletUpdates.dust = FieldValue.increment(dustGained);
         }
       }
+
+      // Build the post-mutation inventory snapshot. If the card converted to
+      // dust, inventory is unchanged; otherwise the target card's quantity
+      // becomes wouldBeQuantity (or the card joins the map at quantity 1).
+      const postMutationInventory = new Map<string, number>();
+      allInventorySnap.forEach((d) => {
+        const qty = d.data()?.quantity_owned ?? 0;
+        if (qty >= 1) postMutationInventory.set(d.id, qty);
+      });
+      if (!convertedToDust) {
+        postMutationInventory.set(cardId, wouldBeQuantity);
+      }
+
+      // Recompute solo unlocks BEFORE queuing any writes (the helper does
+      // tx.getAll then queues tx.update on player_profiles).
+      const profile = profileSnap.exists ? profileSnap.data()! : {};
+      const recomputeResult = await recomputeSoloUnlocks(
+        tx,
+        uid,
+        profile,
+        postMutationInventory,
+      );
 
       tx.update(walletRef, walletUpdates);
 
@@ -150,6 +182,7 @@ export const summonCard = onCall<SummonInput, Promise<SummonResult>>(
         converted_to_dust: convertedToDust,
         dust_gained: dustGained,
         quantity_owned_after: finalQuantity,
+        newly_unlocked_factions: recomputeResult.newlyUnlocked,
       });
 
       return {
@@ -160,6 +193,7 @@ export const summonCard = onCall<SummonInput, Promise<SummonResult>>(
         dust_gained: convertedToDust ? dustGained : undefined,
         quantity_owned_after: finalQuantity,
         wallet_after: walletAfter,
+        newly_unlocked_factions: recomputeResult.newlyUnlocked,
       };
     });
 
