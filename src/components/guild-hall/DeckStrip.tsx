@@ -1,7 +1,7 @@
 // src/components/guild-hall/DeckStrip.tsx
 // Horizontal scroll of 15 deck slots — filled slots followed by empty
-// placeholders. Header text shows current/total count, colored green when
-// the deck is exactly full and yellow otherwise.
+// placeholders. A floating overlay pill on the left edge shows the deck's
+// power score and slot count (green when exactly full).
 
 import React from 'react';
 import { ScrollView, View, Text, StyleSheet } from 'react-native';
@@ -39,25 +39,6 @@ export function DeckStrip({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerLabel}>Active Deck</Text>
-        <View style={styles.headerRight}>
-          {powerScore != null && (
-            <Text style={[styles.headerPower, { color: accent }]}>
-              ⚡ {powerScore}
-            </Text>
-          )}
-          <Text
-            style={[
-              styles.headerCount,
-              { color: isFull ? '#4caf50' : accent },
-            ]}
-          >
-            {count}/{DECK_TARGET}
-          </Text>
-        </View>
-      </View>
-
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -84,6 +65,23 @@ export function DeckStrip({
           </View>
         ))}
       </ScrollView>
+
+      {/* Floating overlay pill — power + count, doesn't push the row down. */}
+      <View style={styles.overlayPill} pointerEvents="none">
+        {powerScore != null && (
+          <Text style={[styles.overlayPower, { color: accent }]}>
+            ⚡ {powerScore}
+          </Text>
+        )}
+        <Text
+          style={[
+            styles.overlayCount,
+            { color: isFull ? '#4caf50' : accent },
+          ]}
+        >
+          {count}/{DECK_TARGET}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -91,41 +89,41 @@ export function DeckStrip({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#161616',
-    paddingTop: 8,
-    paddingBottom: 10,
+    paddingTop: 4,
+    paddingBottom: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#222',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 6,
-  },
-  headerLabel: {
-    color: '#bbb',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerPower: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  headerCount: {
-    fontSize: 13,
-    fontWeight: '700',
+    position: 'relative',
   },
   scroll: {
     paddingHorizontal: 12,
+    paddingLeft: 76, // leave room for the overlay pill on the left edge
   },
   slotWrap: {
     marginRight: 8,
+  },
+  overlayPill: {
+    position: 'absolute',
+    left: 8,
+    top: '50%',
+    transform: [{ translateY: -16 }],
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.78)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#2a2a30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 60,
+  },
+  overlayPower: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  overlayCount: {
+    fontSize: 11,
+    fontWeight: '800',
+    marginTop: 1,
   },
 });
