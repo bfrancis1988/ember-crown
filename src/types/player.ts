@@ -25,6 +25,10 @@ export type PlayerProfile = {
   // toggle ships in Phase 9.5. When false, this player's saved decks are
   // excluded from other players' Battle Mode opponent pool.
   battle_mode_decks_shareable?: boolean;
+  // Phase 9.4.5-extras: marks pre-built matchmaking decks (no Firebase Auth
+  // user, never logs in). Real players never have this set. findBattleOpponent
+  // includes these in the opponent pool to keep matchmaking varied at launch.
+  is_synthetic_opponent?: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
 };
