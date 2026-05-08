@@ -16,6 +16,8 @@ import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../../lib/firebase';
+import { Analytics, fireOnceAnalyticsEvent } from '../../lib/analytics';
+import { useAuth } from '../../contexts/AuthContext';
 import { FACTIONS } from '../../lib/factions';
 import { useCanStartMatch } from '../../hooks/useCanStartMatch';
 import type { CommanderEntry } from '../../types/commander';
@@ -25,6 +27,7 @@ const DEFAULT_ACCENT = '#d4a04a';
 
 export function PlaySoloMatchButton() {
   const router = useRouter();
+  const { user } = useAuth();
   const { readiness, profile, deckSize } = useCanStartMatch();
   const [commanderName, setCommanderName] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
@@ -69,6 +72,11 @@ export function PlaySoloMatchButton() {
         'initializeNewMatch'
       );
       const result = await fn({});
+      if (user) {
+        fireOnceAnalyticsEvent(user.uid, 'first_match:solo', () =>
+          Analytics.firstMatch('solo'),
+        ).catch(() => {/* best-effort */});
+      }
       router.push(`/match/${result.data.match_id}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';

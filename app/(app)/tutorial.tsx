@@ -16,6 +16,7 @@ import {
 import { useRouter } from 'expo-router';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../src/lib/firebase';
+import { Analytics } from '../../src/lib/analytics';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
 import type { InitializeNewMatchResult } from '../../src/types/matchActions';
 
@@ -64,6 +65,7 @@ export default function TutorialScreen() {
         'completeTutorial',
       );
       await fn({ skipped: true });
+      Analytics.tutorialComplete();
       router.replace('/home');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';

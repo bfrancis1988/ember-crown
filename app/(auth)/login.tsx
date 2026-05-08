@@ -11,10 +11,13 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Eye, EyeOff } from 'lucide-react-native';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { Analytics } from '../../src/lib/analytics';
 
 export default function LoginScreen() {
   const { signInWithEmail, signUpWithEmail } = useAuth();
@@ -22,6 +25,7 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSignIn = async () => {
@@ -48,6 +52,7 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     try {
       await signUpWithEmail(email.trim(), password);
+      Analytics.signup('email');
       router.replace('/home');
     } catch (err: any) {
       Alert.alert('Sign up failed', err?.message ?? 'Unknown error');
@@ -82,17 +87,47 @@ export default function LoginScreen() {
         editable={!isSubmitting}
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#888"
-        autoCapitalize="none"
-        autoCorrect={false}
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        editable={!isSubmitting}
-      />
+      <View style={styles.passwordRow}>
+        <TextInput
+          style={[styles.input, styles.passwordInput]}
+          placeholder="Password"
+          placeholderTextColor="#888"
+          autoCapitalize="none"
+          autoCorrect={false}
+          secureTextEntry={!passwordVisible}
+          value={password}
+          onChangeText={setPassword}
+          editable={!isSubmitting}
+        />
+        <Pressable
+          onPress={() => setPasswordVisible((v) => !v)}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={({ pressed }) => [styles.passwordToggle, pressed && styles.passwordTogglePressed]}
+          disabled={isSubmitting}
+          accessibilityRole="button"
+          accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+        >
+          {passwordVisible ? (
+            <EyeOff size={20} color="#bbb" />
+          ) : (
+            <Eye size={20} color="#bbb" />
+          )}
+        </Pressable>
+      </View>
+
+      <TouchableOpacity
+        onPress={() =>
+          router.push({
+            pathname: '/forgot-password',
+            params: email.trim() ? { email: email.trim() } : {},
+          })
+        }
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        disabled={isSubmitting}
+        style={styles.forgotLink}
+      >
+        <Text style={styles.forgotLinkText}>Forgot password?</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={[styles.button, isSubmitting && styles.buttonDisabled]}
@@ -144,6 +179,38 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: '#fff',
     backgroundColor: '#1a1a1a',
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  passwordInput: {
+    flex: 1,
+  },
+  passwordToggle: {
+    width: 48,
+    height: 48,
+    marginLeft: 8,
+    marginBottom: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#333',
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  passwordTogglePressed: {
+    opacity: 0.7,
+  },
+  forgotLink: {
+    alignSelf: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  forgotLinkText: {
+    color: '#888',
+    fontSize: 13,
   },
   button: {
     height: 48,

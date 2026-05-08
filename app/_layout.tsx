@@ -5,15 +5,21 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { GlobalBackground } from '../src/components/navigation/GlobalBackground';
 import { initAdMob } from '../src/lib/admob';
+import { initObservability, setObservabilityUser } from '../src/lib/observability';
 
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
-  const { isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
     initAdMob().catch((err) => console.warn('AdMob init failed:', err));
+    initObservability().catch((err) => console.warn('Observability init failed:', err));
   }, []);
+
+  useEffect(() => {
+    setObservabilityUser(user?.uid ?? null);
+  }, [user]);
 
   useEffect(() => {
     if (!isLoading) {

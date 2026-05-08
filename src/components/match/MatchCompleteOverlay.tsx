@@ -22,6 +22,7 @@ import {
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { showRewardedAd } from '../../lib/admob';
+import { Analytics } from '../../lib/analytics';
 import type { MatchSession, Side } from '../../types/match';
 import type { CampaignStage } from '../../types/campaign';
 import type {
@@ -237,6 +238,7 @@ export function MatchCompleteOverlay({
         return;
       }
       const r = await onClaimWithAd();
+      Analytics.adWatched(r.is_win ? 'win' : 'loss', session.mode);
       setAdClaimResult(r);
       setHasClaimed(true);
     } catch (err: any) {

@@ -29,6 +29,9 @@ export type PlayerProfile = {
   // user, never logs in). Real players never have this set. findBattleOpponent
   // includes these in the opponent pool to keep matchmaking varied at launch.
   is_synthetic_opponent?: boolean;
+  // Phase 9.5B: which fire-once analytics events have already fired for this
+  // player. Idempotent guard so reinstalls don't re-fire "first match" etc.
+  fired_analytics_events?: string[];
   created_at: Timestamp;
   updated_at: Timestamp;
 };

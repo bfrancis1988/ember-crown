@@ -16,6 +16,8 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, functions } from '../../lib/firebase';
+import { Analytics, fireOnceAnalyticsEvent } from '../../lib/analytics';
+import { useAuth } from '../../contexts/AuthContext';
 import { BANNERS, type BannerId } from '../../lib/banners';
 import { useWalletAndCanSummon } from '../../hooks/useWalletAndCanSummon';
 import { BannerCard } from '../summon/BannerCard';
@@ -28,6 +30,7 @@ import type { CardLibraryEntry } from '../../types/card';
 type SummonInput = { bannerId: BannerId };
 
 export function SummonTab() {
+  const { user } = useAuth();
   const { canSummon } = useWalletAndCanSummon();
 
   const [isPulling, setIsPulling] = useState<BannerId | null>(null);
@@ -44,6 +47,11 @@ export function SummonTab() {
       const result = (await fn({ bannerId })).data;
       const cardSnap = await getDoc(doc(db, 'card_library', result.card_id));
       const cardData = cardSnap.exists() ? (cardSnap.data() as CardLibraryEntry) : null;
+      if (user) {
+        fireOnceAnalyticsEvent(user.uid, `first_summon:${bannerId}`, () =>
+          Analytics.firstSummon(bannerId),
+        ).catch(() => {/* best-effort */});
+      }
       setLastResult(result);
       setLastResultCard(cardData);
     } catch (err) {
