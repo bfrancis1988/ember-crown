@@ -61,6 +61,7 @@ functions/node_modules/
 # Phase 9.5B: app branding assets MUST ship with source — referenced by app.json
 # and consumed by EAS at build time. Keep these tracked.
 !/assets/icon.png
-!/assets/adaptive-icon.png
+!/assets/adaptive-icon-foreground.png
+!/assets/adaptive-icon-background.png
 !/assets/splash-icon.png
 !/assets/favicon.png

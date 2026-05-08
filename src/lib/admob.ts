@@ -9,6 +9,7 @@ import mobileAds, {
   RewardedAd,
   RewardedAdEventType,
   AdEventType,
+  MaxAdContentRating,
   TestIds,
 } from 'react-native-google-mobile-ads';
 import { Platform } from 'react-native';
@@ -20,10 +21,21 @@ const REWARDED_AD_UNIT_ID = __DEV__
       android: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX', // TODO Phase 10
     })!;
 
+// CCPA Path B: non-personalized ads only. Privacy policy commits to this,
+// so every ad request must set requestNonPersonalizedAdsOnly: true.
+const AD_REQUEST_OPTIONS = {
+  requestNonPersonalizedAdsOnly: true,
+} as const;
+
 let initialized = false;
 
 export async function initAdMob(): Promise<void> {
   if (initialized) return;
+  await mobileAds().setRequestConfiguration({
+    maxAdContentRating: MaxAdContentRating.T,
+    tagForChildDirectedTreatment: false,
+    tagForUnderAgeOfConsent: false,
+  });
   await mobileAds().initialize();
   initialized = true;
 }
@@ -36,9 +48,7 @@ export async function showRewardedAd(): Promise<boolean> {
   await initAdMob();
 
   return new Promise((resolve) => {
-    const ad = RewardedAd.createForAdRequest(REWARDED_AD_UNIT_ID, {
-      requestNonPersonalizedAdsOnly: false,
-    });
+    const ad = RewardedAd.createForAdRequest(REWARDED_AD_UNIT_ID, AD_REQUEST_OPTIONS);
 
     let earned = false;
     let resolved = false;
