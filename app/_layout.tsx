@@ -4,13 +4,15 @@ import { StyleSheet, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { GlobalBackground } from '../src/components/navigation/GlobalBackground';
+import { usePlayerProfile } from '../src/hooks/usePlayerProfile';
 import { initAdMob } from '../src/lib/admob';
 import { initObservability, setObservabilityUser } from '../src/lib/observability';
 
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const { profile, isLoading: profileLoading } = usePlayerProfile();
 
   useEffect(() => {
     initAdMob().catch((err) => console.warn('AdMob init failed:', err));
@@ -22,12 +24,12 @@ function RootLayoutNav() {
   }, [user]);
 
   useEffect(() => {
-    if (!isLoading) {
-      SplashScreen.hideAsync();
-    }
-  }, [isLoading]);
+    if (authLoading) return;
+    if (user && (profileLoading || !profile)) return;
+    SplashScreen.hideAsync();
+  }, [authLoading, user, profileLoading, profile]);
 
-  if (isLoading) {
+  if (authLoading) {
     return null;
   }
 

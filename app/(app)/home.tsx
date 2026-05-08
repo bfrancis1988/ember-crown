@@ -78,8 +78,15 @@ export default function HomeScreen() {
     }
   };
 
-  const username = profile?.username ?? '...';
-  const step = profile?.onboarding_step ?? 0;
+  // Gate rendering on profile being loaded. Without this, returning users
+  // briefly see the step-0 onboarding UI (Welcome / Choose Your Faction)
+  // because `profile?.onboarding_step ?? 0` defaults to 0 while loading.
+  // The root splash screen stays visible until profile resolves (see
+  // app/_layout.tsx), so this should not produce a perceptible blank frame.
+  if (!profile) return null;
+
+  const username = profile.username;
+  const step = profile.onboarding_step;
 
   // Onboarding branches 0-3 (faction picker, commander picker, provisioning,
   // provisioning error). Step 4+ falls through to the full landing layout.
