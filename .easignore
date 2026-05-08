@@ -1,0 +1,13 @@
+# Worktrees — multiple copies of the repo, don't upload to EAS
+.claude/
+
+# node_modules — EAS rebuilds these, don't need source
+node_modules/
+
+# Build outputs
+android/build/
+ios/build/
+
+# Environment files
+.env
+.env.local
