@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "903632353042",
+    "project_id": "ember-crown",
+    "storage_bucket": "ember-crown.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:903632353042:android:ddcd456a89e1fbaac9a5cb",
+        "android_client_info": {
+          "package_name": "com.embercrown.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "903632353042-cpnikna91a954raor53q2s7b31fsk056.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMujmDiWWaqvi3W2bnngqTawSsAtnKJtI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "903632353042-cpnikna91a954raor53q2s7b31fsk056.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "903632353042-5vuf7igop69aas6hqi5851pcb8igabmr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.bfrancis1988.embercrown"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
