@@ -1,6 +1,5 @@
 // app/(auth)/login.tsx
-// Email/password authentication UI. Google button is a placeholder until
-// Step 7 of the planning doc (requires a dev build, not Expo Go).
+// Email/password authentication UI.
 
 import React, { useState } from 'react';
 import {
@@ -59,13 +58,6 @@ export default function LoginScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleGooglePlaceholder = () => {
-    Alert.alert(
-      'Coming soon',
-      'Google sign-in will be wired up in a later phase (requires a dev build).'
-    );
   };
 
   return (
@@ -144,14 +136,6 @@ export default function LoginScreen() {
       >
         <Text style={styles.buttonText}>Log In</Text>
       </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.button, styles.buttonGoogle]}
-        onPress={handleGooglePlaceholder}
-        disabled={isSubmitting}
-      >
-        <Text style={styles.buttonText}>Sign In with Google</Text>
-      </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 }
@@ -222,11 +206,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
-  },
-  buttonGoogle: {
-    backgroundColor: '#2a2a2a',
-    borderWidth: 1,
-    borderColor: '#444',
   },
   buttonText: {
     color: '#fff',
