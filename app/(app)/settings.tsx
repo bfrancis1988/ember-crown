@@ -21,6 +21,7 @@ import {
   ScrollView,
   Switch,
   Modal,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -30,6 +31,11 @@ import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
 import { functions } from '../../src/lib/firebase';
+
+const PRIVACY_URL =
+  'https://app.termly.io/policy-viewer/policy.html?policyUUID=ed4990b7-7970-4b17-992d-ad4514360130';
+const TERMS_URL =
+  'https://app.termly.io/policy-viewer/policy.html?policyUUID=aecff60c-1477-4f2a-bae6-a32949054fae';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -103,6 +109,22 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleOpenLegalUrl = async (url: string, label: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Could not open link', `No app available to open the ${label}.`);
+      }
+    } catch (err) {
+      console.warn(`Could not open ${label} URL:`, err);
+    }
+  };
+
+  const handlePrivacy = () => handleOpenLegalUrl(PRIVACY_URL, 'Privacy Policy');
+  const handleTerms = () => handleOpenLegalUrl(TERMS_URL, 'Terms of Service');
+
   const handleOpenDeleteModal = () => {
     setDeletePassword('');
     setDeletePasswordVisible(false);
@@ -131,8 +153,17 @@ export default function SettingsScreen() {
         'deleteUserAccount',
       );
       await fn({});
-      // Auth state change unmounts the (app) layout and routes to /login.
+
+      // Sign out so the deleted UID can't trigger the auto-create profile hook.
+      try {
+        await signOut();
+      } catch (err) {
+        console.warn('Post-delete sign-out failed:', err);
+        // Non-blocking — auth user is already deleted server-side.
+      }
+
       setDeleteModalOpen(false);
+      router.replace('/login');
     } catch (err: any) {
       const code = err?.code as string | undefined;
       if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
@@ -219,20 +250,14 @@ export default function SettingsScreen() {
         {/* Legal */}
         <Text style={styles.sectionLabel}>Legal</Text>
         <View style={styles.card}>
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => router.push('/legal/privacy')}
-          >
+          <TouchableOpacity style={styles.row} onPress={handlePrivacy}>
             <View style={styles.rowMain}>
               <Text style={styles.rowLabel}>Privacy Policy</Text>
             </View>
             <Text style={styles.rowChevron}>›</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => router.push('/legal/terms')}
-          >
+          <TouchableOpacity style={styles.row} onPress={handleTerms}>
             <View style={styles.rowMain}>
               <Text style={styles.rowLabel}>Terms of Service</Text>
             </View>
