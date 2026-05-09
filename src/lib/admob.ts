@@ -1,9 +1,8 @@
 // src/lib/admob.ts
-// AdMob initialization + rewarded-ad helper. Phase 9.4 monetization stub.
+// AdMob initialization + rewarded-ad helper.
 //
-// Test units only in v1: __DEV__ uses Google's TestIds, production builds use
-// the IDs swapped in at Phase 10 (TestFlight + Play closed beta). The TODOs
-// below are the swap points.
+// __DEV__ uses Google's TestIds so dev/TestFlight-internal testing never
+// triggers AdMob policy violations. Production builds use the real units.
 
 import mobileAds, {
   RewardedAd,
@@ -14,12 +13,14 @@ import mobileAds, {
 } from 'react-native-google-mobile-ads';
 import { Platform } from 'react-native';
 
+const PROD_REWARDED_ANDROID = 'ca-app-pub-4913659728698968/1794730331';
+const PROD_REWARDED_IOS = 'ca-app-pub-4913659728698968/8168566998';
+
 const REWARDED_AD_UNIT_ID = __DEV__
   ? TestIds.REWARDED
-  : Platform.select({
-      ios: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX',     // TODO Phase 10
-      android: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX', // TODO Phase 10
-    })!;
+  : Platform.OS === 'ios'
+    ? PROD_REWARDED_IOS
+    : PROD_REWARDED_ANDROID;
 
 // CCPA Path B: non-personalized ads only. Privacy policy commits to this,
 // so every ad request must set requestNonPersonalizedAdsOnly: true.

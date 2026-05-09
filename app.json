@@ -11,13 +11,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.embercrown.app",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "buildNumber": "1"
     },
     "android": {
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.embercrown.app",
       "googleServicesFile": "./google-services.json",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon-foreground.png",
         "backgroundColor": "#1a1a2e"
@@ -31,8 +33,8 @@
       [
         "react-native-google-mobile-ads",
         {
-          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+          "androidAppId": "ca-app-pub-4913659728698968~5346962539",
+          "iosAppId": "ca-app-pub-4913659728698968~9952806397"
         }
       ],
       "@react-native-firebase/app",
