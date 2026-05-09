@@ -1,8 +1,8 @@
 // functions/src/onboarding/completeTutorial.ts
 // Callable: marks the tutorial complete and pays out the deferred Phase 3
-// economy reward (1000 coins + 10 shards). Called either from the tutorial
-// match's MatchCompleteOverlay (skipped: false) or from the Skip Tutorial
-// button on the entry screen (skipped: true).
+// economy reward (100 coins + 1 shard + 1 key). Called either from the
+// tutorial match's MatchCompleteOverlay (skipped: false) or from the Skip
+// Tutorial button on the entry screen (skipped: true).
 //
 // Idempotent via the tutorial_completed flag: a second call throws
 // 'failed-precondition' so wallet credit cannot be granted twice.
@@ -12,8 +12,9 @@ import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
-const TUTORIAL_REWARD_COINS = 1000;
-const TUTORIAL_REWARD_SHARDS = 10;
+const TUTORIAL_REWARD_COINS = 100;
+const TUTORIAL_REWARD_SHARDS = 1;
+const TUTORIAL_REWARD_KEYS = 1;
 
 type CompleteTutorialInput = { skipped?: boolean };
 
@@ -21,6 +22,7 @@ type CompleteTutorialResult = {
   success: true;
   coins_earned: number;
   shards_earned: number;
+  keys_earned: number;
   skipped: boolean;
 };
 
@@ -57,6 +59,7 @@ export const completeTutorial = onCall<CompleteTutorialInput, Promise<CompleteTu
       tx.update(walletRef, {
         coins: FieldValue.increment(TUTORIAL_REWARD_COINS),
         shards: FieldValue.increment(TUTORIAL_REWARD_SHARDS),
+        keys: FieldValue.increment(TUTORIAL_REWARD_KEYS),
         updated_at: FieldValue.serverTimestamp(),
       });
 
@@ -69,6 +72,7 @@ export const completeTutorial = onCall<CompleteTutorialInput, Promise<CompleteTu
         success: true as const,
         coins_earned: TUTORIAL_REWARD_COINS,
         shards_earned: TUTORIAL_REWARD_SHARDS,
+        keys_earned: TUTORIAL_REWARD_KEYS,
         skipped,
       };
     });
@@ -78,6 +82,7 @@ export const completeTutorial = onCall<CompleteTutorialInput, Promise<CompleteTu
       skipped: result.skipped,
       coins_earned: result.coins_earned,
       shards_earned: result.shards_earned,
+      keys_earned: result.keys_earned,
     });
 
     return result;

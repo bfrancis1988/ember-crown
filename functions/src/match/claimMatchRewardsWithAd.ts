@@ -5,7 +5,7 @@
 // formula:
 //   Win  + ad: 2× the no-ad payout
 //   Loss + ad: 50% of the win baseline (floored), no keys, no progression
-// Tutorial mode is rejected — completeTutorial keeps its 1000+10 reward and
+// Tutorial mode is rejected — completeTutorial keeps its 100c+1s+1k reward and
 // has no ad option.
 //
 // One ad per match: the new ad_reward_claimed flag plus player_a_claimed both

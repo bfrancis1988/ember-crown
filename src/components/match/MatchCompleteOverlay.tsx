@@ -36,6 +36,7 @@ type CompleteTutorialResult = {
   success: true;
   coins_earned: number;
   shards_earned: number;
+  keys_earned: number;
   skipped: boolean;
 };
 
@@ -70,7 +71,7 @@ export function MatchCompleteOverlay({
   const [hasClaimed, setHasClaimed] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimResult, setClaimResult] = useState<
-    { coins_earned: number; shards_earned: number } | null
+    { coins_earned: number; shards_earned: number; keys_earned?: number } | null
   >(null);
   const [campaignClaimResult, setCampaignClaimResult] =
     useState<RecordCampaignWinResult | null>(null);
@@ -200,7 +201,11 @@ export function MatchCompleteOverlay({
     try {
       if (!onCompleteTutorial) throw new Error('Tutorial complete handler missing.');
       const r = await onCompleteTutorial();
-      setClaimResult({ coins_earned: r.coins_earned, shards_earned: r.shards_earned });
+      setClaimResult({
+        coins_earned: r.coins_earned,
+        shards_earned: r.shards_earned,
+        keys_earned: r.keys_earned,
+      });
       setHasClaimed(true);
     } catch (err: any) {
       setError(err?.message ?? 'Claim failed.');
@@ -827,6 +832,12 @@ export function MatchCompleteOverlay({
                 <Text style={styles.rewardLabel}>Shards </Text>
                 <Text style={styles.rewardValue}>+{claimResult.shards_earned}</Text>
               </Text>
+              {claimResult.keys_earned && claimResult.keys_earned > 0 ? (
+                <Text style={styles.rewardLine}>
+                  <Text style={styles.rewardLabel}>Keys   </Text>
+                  <Text style={styles.rewardValue}>+{claimResult.keys_earned}</Text>
+                </Text>
+              ) : null}
             </Animated.View>
             <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
               <TouchableOpacity style={styles.primaryButton} onPress={onReturnHome}>

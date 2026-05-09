@@ -90,7 +90,7 @@ export default function BattleHubScreen() {
           <HeroCard
             accent="#d4a04a"
             title="Tutorial"
-            subtitle="Learn the basics. Earn 1000 coins + 10 shards."
+            subtitle="Learn the basics. Earn 100 coins + 1 shard + 1 key."
             cta="Begin"
             ctaTone="primary"
             onPress={() => router.push('/tutorial')}

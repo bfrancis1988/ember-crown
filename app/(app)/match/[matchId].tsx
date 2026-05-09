@@ -54,6 +54,7 @@ type CompleteTutorialResult = {
   success: true;
   coins_earned: number;
   shards_earned: number;
+  keys_earned: number;
   skipped: boolean;
 };
 
