@@ -38,7 +38,7 @@
         {
           "ios": {
             "useFrameworks": "static",
-            "useModularHeaders": true
+            "forceStaticLinking": ["RNFBApp", "RNFBAnalytics", "RNFBCrashlytics"]
           }
         }
       ],
