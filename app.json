@@ -12,7 +12,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.embercrown.app",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "edgeToEdgeEnabled": true,
