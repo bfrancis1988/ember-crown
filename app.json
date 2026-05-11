@@ -9,7 +9,7 @@
     "newArchEnabled": true,
     "icon": "./assets/icon.png",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.embercrown.app",
       "googleServicesFile": "./GoogleService-Info.plist",
       "buildNumber": "1",
