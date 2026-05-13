@@ -7,7 +7,7 @@ import type { ScriptedAction } from '../lib/tutorialDecks';
 
 export type { ScriptedAction };
 
-export type MatchStatus = 'in_progress' | 'game_over';
+export type MatchStatus = 'in_progress' | 'game_over' | 'cancelled';
 export type Side = 'player_a' | 'player_b';
 export type BotDifficulty = 'standard' | 'easy' | 'boss';
 export type MatchMode = 'solo' | 'tutorial' | 'campaign' | 'battle_mode';
