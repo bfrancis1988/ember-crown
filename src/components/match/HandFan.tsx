@@ -16,6 +16,9 @@ type Props = {
   selectedInstanceId: string | null;
   onSelectCard: (instanceId: string) => void;
   isPlayerTurn: boolean;
+  // Update 1: long-press a hand card to preview it. Independent of turn
+  // state (preview is read-only) so it works while waiting on the opponent.
+  onLongPressCard?: (instanceId: string) => void;
 };
 
 const FALLBACK_FACTION_COLOR = '#555';
@@ -30,6 +33,7 @@ export function HandFan({
   selectedInstanceId,
   onSelectCard,
   isPlayerTurn,
+  onLongPressCard,
 }: Props) {
   if (cards.length === 0) {
     return (
@@ -70,6 +74,9 @@ export function HandFan({
                 factionColor={color}
                 isSelected={isSelected}
                 onPress={isPlayerTurn ? () => onSelectCard(c.instance_id) : undefined}
+                onLongPress={
+                  onLongPressCard ? () => onLongPressCard(c.instance_id) : undefined
+                }
               />
             </View>
           );

@@ -28,6 +28,11 @@ type Props = {
   // optimal_lane on the viewer's side. Adds an additive green glow so
   // the tappable gold border still reads when both are true.
   isOptimalForSelected: boolean;
+  // Update 1: long-press a card in this lane to open the preview modal.
+  // Trade-off: when set, short-taps on existing lane cards no longer bubble
+  // to onTapLane (the inner Pressable swallows them). Players targeting a
+  // tappable lane must tap empty lane space or the label column instead.
+  onLongPressCard?: (instanceId: string) => void;
   onTapLane: () => void;
 };
 
@@ -45,6 +50,7 @@ export function LaneRow({
   isCommanderActive,
   isTappable,
   isOptimalForSelected,
+  onLongPressCard,
   onTapLane,
 }: Props) {
   const isOpponent = owner !== viewerSide;
@@ -87,7 +93,14 @@ export function LaneRow({
             const color = factionColorMap.get(entry.faction) ?? FALLBACK_FACTION_COLOR;
             return (
               <View key={c.instance_id} style={styles.cardWrap}>
-                <MatchCard card={c} cardLibraryEntry={entry} factionColor={color} />
+                <MatchCard
+                  card={c}
+                  cardLibraryEntry={entry}
+                  factionColor={color}
+                  onLongPress={
+                    onLongPressCard ? () => onLongPressCard(c.instance_id) : undefined
+                  }
+                />
               </View>
             );
           })

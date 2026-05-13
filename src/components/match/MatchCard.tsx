@@ -18,6 +18,10 @@ type Props = {
   isSelected?: boolean;
   isFaceDown?: boolean;
   onPress?: () => void;
+  // Update 1: long-press anywhere on the tile opens the mid-match preview.
+  // When set, the tile renders as Pressable even without an onPress handler
+  // (lane cards have no tap action of their own but still support preview).
+  onLongPress?: () => void;
 };
 
 const RARITY_BORDER: Record<Rarity, string> = {
@@ -35,6 +39,7 @@ export function MatchCard({
   isSelected = false,
   isFaceDown = false,
   onPress,
+  onLongPress,
 }: Props) {
   const borderColor = RARITY_BORDER[cardLibraryEntry.rarity] ?? RARITY_BORDER.Common;
   const [imageError, setImageError] = useState(false);
@@ -118,11 +123,12 @@ export function MatchCard({
     </View>
   );
 
-  if (onPress) {
+  if (onPress || onLongPress) {
     return (
       <Pressable
         style={({ pressed }) => [...containerStyle, pressed && styles.pressed]}
         onPress={onPress}
+        onLongPress={onLongPress}
       >
         {Inner}
       </Pressable>

@@ -30,6 +30,7 @@ import { CommanderTile } from '../../../src/components/match/CommanderTile';
 import { HandFan } from '../../../src/components/match/HandFan';
 import { MatchCompleteOverlay } from '../../../src/components/match/MatchCompleteOverlay';
 import { SacrificeTargetSelector } from '../../../src/components/match/SacrificeTargetSelector';
+import { MatchCardPreviewModal } from '../../../src/components/match/MatchCardPreviewModal';
 import {
   TutorialTooltipProvider,
   useTutorialTooltips,
@@ -117,6 +118,10 @@ function MatchScreenInner() {
     lane: Lane;
     cardName: string;
   } | null>(null);
+
+  // Update 1 — long-press preview modal. Holds the instance_id of the card
+  // being previewed (read-only view; no mutation of selection state).
+  const [previewInstanceId, setPreviewInstanceId] = useState<string | null>(null);
 
   const factionColorMap = useMemo(buildFactionColorMap, []);
 
@@ -653,6 +658,7 @@ function MatchScreenInner() {
             isCommanderActive={oppCommanderActiveLane === lane}
             isTappable={laneTappableFor(opponentSide)}
             isOptimalForSelected={laneIsOptimalForSelected(lane, opponentSide)}
+            onLongPressCard={setPreviewInstanceId}
             onTapLane={() => {
               if (selectedInstanceId) handleLaneTap(selectedInstanceId, lane);
             }}
@@ -681,6 +687,7 @@ function MatchScreenInner() {
             isCommanderActive={myCommanderActiveLane === lane}
             isTappable={laneTappableFor(viewerSide)}
             isOptimalForSelected={laneIsOptimalForSelected(lane, viewerSide)}
+            onLongPressCard={setPreviewInstanceId}
             onTapLane={() => {
               if (selectedInstanceId) handleLaneTap(selectedInstanceId, lane);
             }}
@@ -720,6 +727,7 @@ function MatchScreenInner() {
           selectedInstanceId={selectedInstanceId}
           onSelectCard={handleSelectHandCard}
           isPlayerTurn={isPlayerTurn && !myPassed && !actionLoading}
+          onLongPressCard={setPreviewInstanceId}
         />
       </ScrollView>
 
@@ -760,6 +768,29 @@ function MatchScreenInner() {
         }}
         onCancel={() => setPendingRitual(null)}
       />
+
+      {/* Update 1 — long-press preview. Derive entry + faction color here so
+          the modal stays a thin presentational component. */}
+      {(() => {
+        const previewCard = previewInstanceId
+          ? cards.find((c) => c.instance_id === previewInstanceId) ?? null
+          : null;
+        const previewEntry = previewCard
+          ? cardLibraryMap.get(previewCard.card_id) ?? null
+          : null;
+        const previewFactionColor = previewEntry
+          ? factionColorMap.get(previewEntry.faction) ?? FALLBACK_FACTION_COLOR
+          : FALLBACK_FACTION_COLOR;
+        return (
+          <MatchCardPreviewModal
+            visible={previewInstanceId !== null}
+            onClose={() => setPreviewInstanceId(null)}
+            cardLibraryEntry={previewEntry}
+            liveBoardState={previewCard}
+            factionColor={previewFactionColor}
+          />
+        );
+      })()}
     </View>
   );
 }
