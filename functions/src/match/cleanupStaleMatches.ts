@@ -1,12 +1,13 @@
 // functions/src/match/cleanupStaleMatches.ts
 // Scheduled nightly sweep of stale match data. Runs at 03:00 UTC.
 //
-// Three passes:
-//   1. match_sessions in 'game_over' with both _claimed flags + updated_at > 12h old → delete
+// Four passes:
+//   1. match_sessions in 'game_over' with player_a_claimed + updated_at > 12h old → delete
 //   2. match_sessions in 'in_progress' + updated_at > 12h old → delete (abandoned)
 //   3. live_board_state docs whose match_id no longer references a live session → delete
-// Passes 1 + 2 cascade-delete that match's live_board_state docs in the same sweep;
-// pass 3 is a safety net for orphans.
+//   4. match_sessions in 'cancelled' (from account deletion) → delete unconditionally
+// Passes 1, 2, and 4 cascade-delete each match's live_board_state docs in the
+// same sweep; pass 3 is a safety net for orphans.
 //
 // TODO (Phase 9 polish or wherever match history lands):
 //   When a match completes and is claimed, write a summary entry to match_history
@@ -42,6 +43,7 @@ export const cleanupStaleMatches = onSchedule(
     let matchesDeleted = 0;
     let boardDocsDeleted = 0;
     let orphansDeleted = 0;
+    let cancelledDeleted = 0;
 
     // ===== PASS 1: completed + claimed + stale =====
     const completedSnap = await db.collection('match_sessions')
@@ -138,11 +140,52 @@ export const cleanupStaleMatches = onSchedule(
     }
     if (orphanOps > 0) await orphanBatch.commit();
 
+    // ===== PASS 4: cancelled matches (from account deletion) =====
+    // deleteUserAccount marks in-flight matches status='cancelled' rather than
+    // deleting them outright. Without this pass they (and their 30 board-state
+    // docs each) accumulate forever. No age cutoff — once cancelled, the match
+    // is dead and immediately eligible for cleanup.
+    const cancelledSnap = await db.collection('match_sessions')
+      .where('status', '==', 'cancelled')
+      .get();
+
+    logger.info('Cleanup pass 4: cancelled', {
+      to_delete: cancelledSnap.size,
+    });
+
+    for (const cancelledDoc of cancelledSnap.docs) {
+      const matchId = cancelledDoc.data().match_id as string;
+      const matchBoardDocs = await db.collection('live_board_state')
+        .where('match_id', '==', matchId)
+        .get();
+
+      let batch = db.batch();
+      let opsInBatch = 0;
+
+      batch.delete(db.collection('match_sessions').doc(matchId));
+      opsInBatch++;
+
+      for (const boardDoc of matchBoardDocs.docs) {
+        if (opsInBatch >= MAX_OPS_PER_BATCH) {
+          await batch.commit();
+          batch = db.batch();
+          opsInBatch = 0;
+        }
+        batch.delete(boardDoc.ref);
+        opsInBatch++;
+        boardDocsDeleted++;
+      }
+
+      if (opsInBatch > 0) await batch.commit();
+      cancelledDeleted++;
+    }
+
     const durationMs = Date.now() - startTime;
     logger.info('Cleanup complete', {
       matches_deleted: matchesDeleted,
       board_docs_deleted_via_cascade: boardDocsDeleted,
       orphans_deleted: orphansDeleted,
+      cancelled_deleted: cancelledDeleted,
       duration_ms: durationMs,
     });
   },
