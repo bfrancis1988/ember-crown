@@ -18,9 +18,10 @@ type Props = {
   isSelected?: boolean;
   isFaceDown?: boolean;
   onPress?: () => void;
-  // Update 1: long-press anywhere on the tile opens the mid-match preview.
-  // When set, the tile renders as Pressable even without an onPress handler
-  // (lane cards have no tap action of their own but still support preview).
+  // Update 1: long-press opens the mid-match preview modal. Forwarded only
+  // when the tile is already Pressable (i.e. when onPress is also set) so
+  // lane cards keep bubbling short-taps to the parent lane's onTapLane.
+  // In practice that means: hand cards support preview, lane cards don't.
   onLongPress?: () => void;
 };
 
@@ -123,7 +124,7 @@ export function MatchCard({
     </View>
   );
 
-  if (onPress || onLongPress) {
+  if (onPress) {
     return (
       <Pressable
         style={({ pressed }) => [...containerStyle, pressed && styles.pressed]}

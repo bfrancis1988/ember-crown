@@ -658,7 +658,6 @@ function MatchScreenInner() {
             isCommanderActive={oppCommanderActiveLane === lane}
             isTappable={laneTappableFor(opponentSide)}
             isOptimalForSelected={laneIsOptimalForSelected(lane, opponentSide)}
-            onLongPressCard={setPreviewInstanceId}
             onTapLane={() => {
               if (selectedInstanceId) handleLaneTap(selectedInstanceId, lane);
             }}
@@ -687,7 +686,6 @@ function MatchScreenInner() {
             isCommanderActive={myCommanderActiveLane === lane}
             isTappable={laneTappableFor(viewerSide)}
             isOptimalForSelected={laneIsOptimalForSelected(lane, viewerSide)}
-            onLongPressCard={setPreviewInstanceId}
             onTapLane={() => {
               if (selectedInstanceId) handleLaneTap(selectedInstanceId, lane);
             }}
