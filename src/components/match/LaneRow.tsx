@@ -24,6 +24,10 @@ type Props = {
   isDebuffed: boolean;
   isCommanderActive: boolean;
   isTappable: boolean;
+  // Update 1: true when a Unit is selected in hand and this lane is its
+  // optimal_lane on the viewer's side. Adds an additive green glow so
+  // the tappable gold border still reads when both are true.
+  isOptimalForSelected: boolean;
   onTapLane: () => void;
 };
 
@@ -40,6 +44,7 @@ export function LaneRow({
   isDebuffed,
   isCommanderActive,
   isTappable,
+  isOptimalForSelected,
   onTapLane,
 }: Props) {
   const isOpponent = owner !== viewerSide;
@@ -53,6 +58,9 @@ export function LaneRow({
     styles.row,
     isOpponent ? styles.rowOpponent : styles.rowPlayer,
     isTappable && styles.rowTappable,
+    // rowOptimal uses shadow only — additive, so it stacks with rowTappable's
+    // gold border instead of overriding it.
+    isOptimalForSelected && styles.rowOptimal,
   ];
 
   const Inner = (
@@ -124,6 +132,16 @@ const styles = StyleSheet.create({
   rowTappable: {
     borderColor: '#f5c84a',
     backgroundColor: '#241d0d',
+  },
+  // Subtle green glow that signals "this is the selected card's optimal lane".
+  // Shadow-only (no border change) so it coexists with rowTappable's gold
+  // border when both are true — and doesn't shift layout when toggled.
+  rowOptimal: {
+    shadowColor: '#5cd35c',
+    shadowOpacity: 0.55,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
   },
   rowPressed: {
     opacity: 0.7,

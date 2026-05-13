@@ -432,6 +432,15 @@ function MatchScreenInner() {
     return owner === viewerSide;
   }
 
+  // Update 1: highlight the selected Unit's optimal lane on the viewer's side.
+  // Spells return false (they don't have an optimal_lane). Opponent rows always
+  // return false because the optimal-lane bonus is a "play here" hint for you.
+  function laneIsOptimalForSelected(lane: Lane, ownerSide: Side): boolean {
+    if (!selectedEntry || selectedEntry.card_type !== 'Unit') return false;
+    if (ownerSide !== viewerSide) return false;
+    return selectedEntry.optimal_lane === lane;
+  }
+
   // ---- action handlers ----
 
   async function handlePlayCard(
@@ -643,6 +652,7 @@ function MatchScreenInner() {
             isDebuffed={laneDebuffed(opponentSide, lane, session)}
             isCommanderActive={oppCommanderActiveLane === lane}
             isTappable={laneTappableFor(opponentSide)}
+            isOptimalForSelected={laneIsOptimalForSelected(lane, opponentSide)}
             onTapLane={() => {
               if (selectedInstanceId) handleLaneTap(selectedInstanceId, lane);
             }}
@@ -670,6 +680,7 @@ function MatchScreenInner() {
             isDebuffed={laneDebuffed(viewerSide, lane, session)}
             isCommanderActive={myCommanderActiveLane === lane}
             isTappable={laneTappableFor(viewerSide)}
+            isOptimalForSelected={laneIsOptimalForSelected(lane, viewerSide)}
             onTapLane={() => {
               if (selectedInstanceId) handleLaneTap(selectedInstanceId, lane);
             }}
