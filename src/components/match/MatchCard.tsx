@@ -109,7 +109,10 @@ export function MatchCard({
           <Text style={styles.klass} numberOfLines={1}>
             {cardLibraryEntry.klass}
           </Text>
-          <Text style={[styles.power, { color: powerColor }]}>{cur}</Text>
+          <View style={styles.powerPair}>
+            {base !== cur && <Text style={styles.basePower}>{base}</Text>}
+            <Text style={[styles.power, { color: powerColor }]}>{cur}</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -240,5 +243,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     lineHeight: 18,
+  },
+  // base_power displayed alongside current_power when they differ. Muted gray
+  // so it reads as secondary context — current_power keeps its dynamic
+  // green/red/cream color and remains the primary number.
+  basePower: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+  powerPair: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 3,
   },
 });
