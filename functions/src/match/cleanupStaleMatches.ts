@@ -51,7 +51,11 @@ export const cleanupStaleMatches = onSchedule(
 
     const completedToDelete = completedSnap.docs.filter((d) => {
       const data = d.data();
-      return data.player_a_claimed === true && data.player_b_claimed === true;
+      // v1: player_b is always AI_BOT_UID, which never calls claimMatchRewards,
+      // so player_b_claimed is never set to true. Filtering on that flag matched
+      // zero rows in production and completed matches accumulated forever. Only
+      // the human side's claim flag is meaningful in v1.
+      return data.player_a_claimed === true;
     });
 
     logger.info('Cleanup pass 1: completed-and-claimed', {
