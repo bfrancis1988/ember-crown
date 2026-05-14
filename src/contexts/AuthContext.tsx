@@ -5,6 +5,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import {
   onAuthStateChanged,
+  onIdTokenChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInAnonymously,
@@ -33,14 +34,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // onAuthStateChanged returns an unsubscribe function. We fire it on unmount
-    // to avoid setState calls on a torn-down component.
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    // Two listeners:
+    //  - onAuthStateChanged fires on sign-in / sign-out and clears the initial
+    //    isLoading state once Firebase has resolved the persisted session.
+    //  - onIdTokenChanged fires whenever the ID token refreshes — critically,
+    //    after linkWithCredential, when an anonymous user upgrades to a
+    //    permanent account. onAuthStateChanged does not reliably fire on
+    //    in-place mutations of the existing User, so without this second
+    //    listener isAnonymous can stay `true` until the next cold launch.
+    const unsubAuth = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setIsLoading(false);
     });
-
-    return unsubscribe;
+    const unsubToken = onIdTokenChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+    });
+    return () => {
+      unsubAuth();
+      unsubToken();
+    };
   }, []);
 
   const signInWithEmail = async (email: string, password: string) => {
