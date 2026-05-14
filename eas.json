@@ -19,6 +19,11 @@
       "ios": {
         "simulator": false
       }
+    },
+    "proof-apk": {
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {

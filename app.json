@@ -22,7 +22,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.embercrown.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 3,
+      "versionCode": 10,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon-foreground.png",
         "backgroundColor": "#1a1a2e"
