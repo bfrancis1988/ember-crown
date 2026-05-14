@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
+import { SaveProgressProvider } from '../src/contexts/SaveProgressContext';
 import { GlobalBackground } from '../src/components/navigation/GlobalBackground';
 import { usePlayerProfile } from '../src/hooks/usePlayerProfile';
 import { initAdMob } from '../src/lib/admob';
@@ -34,12 +35,14 @@ function RootLayoutNav() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: 'transparent' },
-      }}
-    />
+    <SaveProgressProvider>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: 'transparent' },
+        }}
+      />
+    </SaveProgressProvider>
   );
 }
 
