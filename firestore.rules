@@ -1,3 +1,5 @@
+// Anonymous Auth users have UIDs like regular users; rules apply identically.
+//
 // === Ember Crown Firestore Security Rules ===
 // Phase 5.75 — production-correct rules replacing test mode.
 //
