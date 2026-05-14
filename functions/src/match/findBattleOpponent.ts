@@ -145,6 +145,19 @@ export const findBattleOpponent = onCall<FindBattleOpponentInput, Promise<FindBa
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
+    // Update 1.0.2: defense-in-depth. The client gates Battle Mode entry
+    // via BattleModeGateModal so anonymous users shouldn't reach this
+    // callable. A modified or malicious client could still try; reject
+    // those with permission-denied. Note: the internal resolveBattleOpponent
+    // helper (called by initializeNewMatch's battle_mode branch) is NOT
+    // gated here — if scope expands to also gate that path, mirror the
+    // check at initializeNewMatch's mode='battle_mode' branch.
+    if (request.auth.token?.firebase?.sign_in_provider === 'anonymous') {
+      throw new HttpsError(
+        'permission-denied',
+        'Battle Mode requires a permanent account.',
+      );
+    }
     const uid = request.auth.uid;
     const playerDeckId = request.data?.player_deck_id;
     if (typeof playerDeckId !== 'string' || playerDeckId.length === 0) {
