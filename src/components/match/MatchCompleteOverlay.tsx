@@ -23,6 +23,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { showRewardedAd } from '../../lib/admob';
 import { Analytics } from '../../lib/analytics';
+import { useSaveProgressModal } from '../../contexts/SaveProgressContext';
 import type { MatchSession, Side } from '../../types/match';
 import type { CampaignStage } from '../../types/campaign';
 import type {
@@ -68,6 +69,8 @@ export function MatchCompleteOverlay({
   onReturnToBattleHub,
   onBattleAgain,
 }: Props) {
+  const { showSaveModal } = useSaveProgressModal();
+
   const [hasClaimed, setHasClaimed] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimResult, setClaimResult] = useState<
@@ -188,6 +191,13 @@ export function MatchCompleteOverlay({
       const r = await onClaim();
       setClaimResult({ coins_earned: r.coins_earned, shards_earned: r.shards_earned });
       setHasClaimed(true);
+      // Update 1.0.2: anonymous players see the SaveProgressModal after their
+      // first solo win. The provider gates on isAnonymous and the
+      // shown_save_modal_first_win profile flag so this only ever fires once
+      // per UID and is a no-op for signed-up accounts.
+      if (myWins > oppWins) {
+        showSaveModal('first_win');
+      }
     } catch (err: any) {
       setError(err?.message ?? 'Claim failed.');
     } finally {
