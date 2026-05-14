@@ -8,6 +8,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInAnonymously,
+  EmailAuthProvider,
+  linkWithCredential,
   signOut as firebaseSignOut,
   User,
 } from 'firebase/auth';
@@ -20,6 +22,7 @@ type AuthContextValue = {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signInAsGuest: () => Promise<void>;
+  upgradeAnonymousAccount: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -52,6 +55,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInAnonymously(auth);
   };
 
+  // Upgrades the current anonymous user to a permanent email/password account
+  // by linking the credential to the existing UID. This preserves all
+  // Firestore data keyed on the UID — wallet, inventory, decks, progress.
+  // Throws Firebase auth errors (e.g. auth/email-already-in-use,
+  // auth/weak-password) for the caller to map to UI messages.
+  const upgradeAnonymousAccount = async (email: string, password: string) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('No signed-in user to upgrade.');
+    }
+    const credential = EmailAuthProvider.credential(email, password);
+    await linkWithCredential(currentUser, credential);
+  };
+
   const signOut = async () => {
     await firebaseSignOut(auth);
   };
@@ -63,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInWithEmail,
     signUpWithEmail,
     signInAsGuest,
+    upgradeAnonymousAccount,
     signOut,
   };
 
