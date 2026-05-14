@@ -148,10 +148,10 @@ export const findBattleOpponent = onCall<FindBattleOpponentInput, Promise<FindBa
     // Update 1.0.2: defense-in-depth. The client gates Battle Mode entry
     // via BattleModeGateModal so anonymous users shouldn't reach this
     // callable. A modified or malicious client could still try; reject
-    // those with permission-denied. Note: the internal resolveBattleOpponent
-    // helper (called by initializeNewMatch's battle_mode branch) is NOT
-    // gated here — if scope expands to also gate that path, mirror the
-    // check at initializeNewMatch's mode='battle_mode' branch.
+    // those with permission-denied. The sister path through
+    // initializeNewMatch's mode='battle_mode' branch is gated by the
+    // same check (Phase 7.3), so this and that are the two server-side
+    // chokepoints for Battle Mode access.
     if (request.auth.token?.firebase?.sign_in_provider === 'anonymous') {
       throw new HttpsError(
         'permission-denied',

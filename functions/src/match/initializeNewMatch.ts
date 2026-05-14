@@ -142,6 +142,16 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
       playerBCardIds = [...campaignStage.opponent_deck_card_ids];
       botCommanderId = campaignStage.opponent_commander_id;
     } else if (mode === 'battle_mode') {
+      // Update 1.0.2: Battle Mode requires a permanent account. Mirrors
+      // the check in findBattleOpponent — closes the bypass where a
+      // modified client could call initializeNewMatch directly with
+      // mode='battle_mode' to skip the public findBattleOpponent gate.
+      if (request.auth.token?.firebase?.sign_in_provider === 'anonymous') {
+        throw new HttpsError(
+          'permission-denied',
+          'Battle Mode requires a permanent account.',
+        );
+      }
       const playerDeckId = request.data?.player_deck_id;
       if (!playerDeckId) {
         throw new HttpsError(
