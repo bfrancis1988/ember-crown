@@ -15,6 +15,7 @@ import { auth } from '../lib/firebase';
 
 type AuthContextValue = {
   user: User | null;
+  isAnonymous: boolean;
   isLoading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
@@ -57,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value: AuthContextValue = {
     user,
+    isAnonymous: user?.isAnonymous ?? false,
     isLoading,
     signInWithEmail,
     signUpWithEmail,
