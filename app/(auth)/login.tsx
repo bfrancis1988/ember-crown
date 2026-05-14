@@ -151,6 +151,9 @@ export default function LoginScreen() {
       </TouchableOpacity>
 
       <View style={styles.guestSection}>
+        <Text style={styles.guestRecommendation}>
+          Recommended: Create an account to save your progress across devices and unlock Battle Mode.
+        </Text>
         <TouchableOpacity
           style={[styles.guestButton, isSubmitting && styles.buttonDisabled]}
           onPress={handleTryAsGuest}
@@ -241,6 +244,14 @@ const styles = StyleSheet.create({
   guestSection: {
     marginTop: 24,
     alignItems: 'center',
+  },
+  guestRecommendation: {
+    color: '#888',
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 8,
+    lineHeight: 17,
   },
   guestButton: {
     paddingVertical: 10,
