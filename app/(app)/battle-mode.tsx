@@ -21,6 +21,8 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../src/lib/firebase';
 import { Analytics, fireOnceAnalyticsEvent } from '../../src/lib/analytics';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { useSaveProgressModal } from '../../src/contexts/SaveProgressContext';
+import { BattleModeGateModal } from '../../src/components/auth/BattleModeGateModal';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
 import { usePlayerSavedDecks } from '../../src/hooks/usePlayerSavedDecks';
 import { useSoloPlayableFactions } from '../../src/hooks/useSoloPlayableFactions';
@@ -30,12 +32,32 @@ import type { InitializeNewMatchResult } from '../../src/types/matchActions';
 
 export default function BattleModeScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAnonymous } = useAuth();
+  const { showSaveModal } = useSaveProgressModal();
   const { profile, isLoading: profileLoading } = usePlayerProfile();
   const { decks: savedDecks, isLoading: decksLoading } = usePlayerSavedDecks();
   const playableFactions = useSoloPlayableFactions();
   const [selectedFaction, setSelectedFaction] = useState<FactionId | null>(null);
   const [searching, setSearching] = useState(false);
+
+  // Update 1.0.2: anonymous users must not reach Battle Mode. The Battle
+  // Hub already gates the entry tile, so this branch covers deep links and
+  // edge cases where isAnonymous flips between navigation events. Renders
+  // ONLY the gate modal — no faction picker or Find Battle UI underneath.
+  if (isAnonymous) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <BattleModeGateModal
+          visible={true}
+          onCreateAccount={() => {
+            showSaveModal('manual');
+            router.replace('/battle');
+          }}
+          onBack={() => router.replace('/battle')}
+        />
+      </SafeAreaView>
+    );
+  }
 
   // Default selected faction = profile's active faction if it's playable;
   // otherwise the first playable faction.

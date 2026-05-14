@@ -23,19 +23,31 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../src/lib/firebase';
 import { Analytics, fireOnceAnalyticsEvent } from '../../src/lib/analytics';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { useSaveProgressModal } from '../../src/contexts/SaveProgressContext';
 import { useCanStartMatch } from '../../src/hooks/useCanStartMatch';
 import { useCampaignProgress } from '../../src/hooks/useCampaignProgress';
 import { FACTIONS } from '../../src/lib/factions';
+import { BattleModeGateModal } from '../../src/components/auth/BattleModeGateModal';
 import type { InitializeNewMatchResult } from '../../src/types/matchActions';
 
 const TOTAL_STAGES = 54;
 
 export default function BattleHubScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAnonymous } = useAuth();
+  const { showSaveModal } = useSaveProgressModal();
   const { readiness, profile } = useCanStartMatch();
   const { progress } = useCampaignProgress();
   const [isStartingSolo, setIsStartingSolo] = useState(false);
+  const [battleModeGateVisible, setBattleModeGateVisible] = useState(false);
+
+  const handleEnterBattleMode = () => {
+    if (isAnonymous) {
+      setBattleModeGateVisible(true);
+      return;
+    }
+    router.push('/battle-mode');
+  };
 
   const factionMeta = profile?.active_faction
     ? FACTIONS.find((f) => f.id === profile.active_faction)
@@ -123,9 +135,18 @@ export default function BattleHubScreen() {
           subtitle="Battle decks built by other commanders. Same rewards as Solo."
           cta="Find Battle"
           ctaTone="secondary"
-          onPress={() => router.push('/battle-mode')}
+          onPress={handleEnterBattleMode}
         />
       </ScrollView>
+
+      <BattleModeGateModal
+        visible={battleModeGateVisible}
+        onCreateAccount={() => {
+          setBattleModeGateVisible(false);
+          showSaveModal('manual');
+        }}
+        onBack={() => setBattleModeGateVisible(false)}
+      />
     </SafeAreaView>
   );
 }
