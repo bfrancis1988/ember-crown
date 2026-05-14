@@ -65,6 +65,13 @@ service cloud.firestore {
         'onboarding_step',
         'battle_mode_decks_shareable',
         'fired_analytics_events',
+        // Update 1.0.2: per-trigger guards for the SaveProgressModal. Client
+        // writes these to true after dismissing the modal so it doesn't
+        // re-trigger. Not security-sensitive (worst case a malicious client
+        // could spam-reset them to show the upgrade prompt more often).
+        'shown_save_modal_tutorial',
+        'shown_save_modal_first_win',
+        'shown_save_modal_day_three',
         'updated_at',
       ];
       let changedFields = request.resource.data.diff(resource.data).affectedKeys();

@@ -32,6 +32,14 @@ export type PlayerProfile = {
   // Phase 9.5B: which fire-once analytics events have already fired for this
   // player. Idempotent guard so reinstalls don't re-fire "first match" etc.
   fired_analytics_events?: string[];
+  // Update 1.0.2: per-trigger guards for the SaveProgressModal (the
+  // anonymous-to-permanent-account upgrade prompt). Each flag flips to true
+  // once the modal has been shown for that trigger, whether the user
+  // upgraded or dismissed. Defaults to false at profile creation; only
+  // applicable to anonymous users in practice.
+  shown_save_modal_tutorial?: boolean;
+  shown_save_modal_first_win?: boolean;
+  shown_save_modal_day_three?: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

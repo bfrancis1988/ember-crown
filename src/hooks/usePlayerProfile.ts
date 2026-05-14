@@ -54,6 +54,9 @@ export function usePlayerProfile(): UsePlayerProfileResult {
               unlocked_factions: ['Vanguard Kingdoms'],
               tutorial_reward_claimed: false,
               tutorial_completed: false,
+              shown_save_modal_tutorial: false,
+              shown_save_modal_first_win: false,
+              shown_save_modal_day_three: false,
               created_at: serverTimestamp(),
               updated_at: serverTimestamp(),
             });
