@@ -19,7 +19,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { Analytics } from '../../src/lib/analytics';
 
 export default function LoginScreen() {
-  const { signInWithEmail, signUpWithEmail } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInAsGuest } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -55,6 +55,19 @@ export default function LoginScreen() {
       router.replace('/home');
     } catch (err: any) {
       Alert.alert('Sign up failed', err?.message ?? 'Unknown error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleTryAsGuest = async () => {
+    setIsSubmitting(true);
+    try {
+      await signInAsGuest();
+      router.replace('/home');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert('Could not start guest session', message);
     } finally {
       setIsSubmitting(false);
     }
@@ -136,6 +149,19 @@ export default function LoginScreen() {
       >
         <Text style={styles.buttonText}>Log In</Text>
       </TouchableOpacity>
+
+      <View style={styles.guestSection}>
+        <TouchableOpacity
+          style={[styles.guestButton, isSubmitting && styles.buttonDisabled]}
+          onPress={handleTryAsGuest}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.guestButtonText}>Try as Guest</Text>
+        </TouchableOpacity>
+        <Text style={styles.guestSubtitle}>
+          Play without an account. Progress saves to this device only.
+        </Text>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -211,5 +237,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '500',
+  },
+  guestSection: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  guestButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  guestButtonText: {
+    color: '#bbb',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  guestSubtitle: {
+    color: '#666',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 16,
   },
 });
