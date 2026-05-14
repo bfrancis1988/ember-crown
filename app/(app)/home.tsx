@@ -22,6 +22,7 @@ import { useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../src/lib/firebase';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { useSaveProgressModal } from '../../src/contexts/SaveProgressContext';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
 import { usePlayerWallet } from '../../src/hooks/usePlayerWallet';
 import { usePlayerActiveDeck } from '../../src/hooks/usePlayerActiveDeck';
@@ -169,6 +170,8 @@ type LandingViewProps = {
 
 function LandingView({ username, onSignOut, isSigningOut }: LandingViewProps) {
   const router = useRouter();
+  const { isAnonymous } = useAuth();
+  const { showSaveModal } = useSaveProgressModal();
   const { profile } = usePlayerProfile();
   const { wallet } = usePlayerWallet();
   const { deck } = usePlayerActiveDeck();
@@ -208,6 +211,20 @@ function LandingView({ username, onSignOut, isSigningOut }: LandingViewProps) {
 
   return (
     <View style={styles.landingRoot}>
+      {isAnonymous && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.saveProgressCorner,
+            pressed && styles.saveProgressCornerPressed,
+          ]}
+          onPress={() => showSaveModal('manual')}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Save your progress by creating an account"
+        >
+          <Text style={styles.saveProgressCornerText}>Save Progress</Text>
+        </Pressable>
+      )}
       <TouchableOpacity
         style={[styles.logoutCorner, isSigningOut && styles.disabled]}
         onPress={onSignOut}
@@ -374,6 +391,28 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 14,
     fontWeight: '500',
+  },
+  // Update 1.0.2: Save Progress CTA for anonymous players. Sits to the
+  // left of Logout in the same top-right corner. Bordered to read as a
+  // mild call-to-action, not as decoration.
+  saveProgressCorner: {
+    position: 'absolute',
+    top: 50,
+    right: 90,
+    zIndex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#4a7a2a',
+  },
+  saveProgressCornerPressed: {
+    opacity: 0.7,
+  },
+  saveProgressCornerText: {
+    color: '#9bca6e',
+    fontSize: 12,
+    fontWeight: '600',
   },
   disabled: { opacity: 0.5 },
   center: {
