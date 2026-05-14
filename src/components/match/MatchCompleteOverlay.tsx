@@ -191,18 +191,24 @@ export function MatchCompleteOverlay({
       const r = await onClaim();
       setClaimResult({ coins_earned: r.coins_earned, shards_earned: r.shards_earned });
       setHasClaimed(true);
-      // Update 1.0.2: anonymous players see the SaveProgressModal after their
-      // first solo win. The provider gates on isAnonymous and the
-      // shown_save_modal_first_win profile flag so this only ever fires once
-      // per UID and is a no-op for signed-up accounts.
-      if (myWins > oppWins) {
-        showSaveModal('first_win');
-      }
     } catch (err: any) {
       setError(err?.message ?? 'Claim failed.');
     } finally {
       setIsClaiming(false);
     }
+  };
+
+  // Update 1.0.2: SaveProgressModal trigger for "first solo win" deferred
+  // here from handleSoloClaim. Firing inside handleSoloClaim caused the
+  // modal to overlay the rewards summary; firing on Return Home lets the
+  // player see their reward animation first. The provider's gating
+  // (isAnonymous + shown_save_modal_first_win) short-circuits this for
+  // signed-up accounts and repeat wins.
+  const handleSoloReturnHome = () => {
+    if (myWins > oppWins) {
+      showSaveModal('first_win');
+    }
+    onReturnHome();
   };
 
   const handleTutorialClaim = async () => {
@@ -735,7 +741,7 @@ export function MatchCompleteOverlay({
               </Text>
             </Animated.View>
             <Animated.View style={[styles.ctaWrap, ctaAnimStyle]}>
-              <TouchableOpacity style={styles.primaryButton} onPress={onReturnHome}>
+              <TouchableOpacity style={styles.primaryButton} onPress={handleSoloReturnHome}>
                 <Text style={styles.primaryButtonText}>Return Home</Text>
               </TouchableOpacity>
             </Animated.View>
