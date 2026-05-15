@@ -14,7 +14,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff, Play } from 'lucide-react-native';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Analytics } from '../../src/lib/analytics';
 
@@ -79,6 +79,27 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <Text style={styles.title}>Ember Crown</Text>
+
+      <Text style={styles.guestLabel}>No account needed — play right away</Text>
+      <TouchableOpacity
+        style={[styles.guestButton, isSubmitting && styles.buttonDisabled]}
+        onPress={handleTryAsGuest}
+        disabled={isSubmitting}
+        accessibilityRole="button"
+        accessibilityLabel="Try as Guest"
+      >
+        <Play size={18} color="#fff" fill="#fff" />
+        <Text style={styles.guestButtonText}>Try as Guest</Text>
+      </TouchableOpacity>
+      <Text style={styles.guestSubtitle}>
+        Save your progress later by creating an account anytime.
+      </Text>
+
+      <View style={styles.orSeparator}>
+        <View style={styles.orLine} />
+        <Text style={styles.orText}>OR</Text>
+        <View style={styles.orLine} />
+      </View>
 
       <TextInput
         style={styles.input}
@@ -149,22 +170,6 @@ export default function LoginScreen() {
       >
         <Text style={styles.buttonText}>Log In</Text>
       </TouchableOpacity>
-
-      <View style={styles.guestSection}>
-        <Text style={styles.guestRecommendation}>
-          Recommended: Create an account to save your progress across devices and unlock Battle Mode.
-        </Text>
-        <TouchableOpacity
-          style={[styles.guestButton, isSubmitting && styles.buttonDisabled]}
-          onPress={handleTryAsGuest}
-          disabled={isSubmitting}
-        >
-          <Text style={styles.guestButtonText}>Try as Guest</Text>
-        </TouchableOpacity>
-        <Text style={styles.guestSubtitle}>
-          Play without an account. Progress saves to this device only.
-        </Text>
-      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -241,35 +246,53 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  guestSection: {
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  guestRecommendation: {
-    color: '#888',
-    fontSize: 12,
+  guestLabel: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
     textAlign: 'center',
     marginBottom: 12,
     paddingHorizontal: 8,
-    lineHeight: 17,
   },
   guestButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 24,
+    height: 48,
     borderRadius: 8,
+    backgroundColor: '#2a2a2a',
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: '#4a8a4a',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   guestButtonText: {
-    color: '#bbb',
-    fontSize: 14,
-    fontWeight: '500',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   guestSubtitle: {
-    color: '#666',
-    fontSize: 11,
+    color: '#888',
+    fontSize: 12,
     textAlign: 'center',
     marginTop: 8,
     paddingHorizontal: 16,
+  },
+  orSeparator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#333',
+  },
+  orText: {
+    marginHorizontal: 12,
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 1,
   },
 });
