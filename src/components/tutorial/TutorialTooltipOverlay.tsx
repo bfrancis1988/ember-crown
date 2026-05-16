@@ -86,21 +86,12 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, TooltipContent> = {
       'wins, or tap Pass to save your hand for next round.',
     position: 'bottom-right',
   },
-  curse_hint: {
-    title: 'Curses',
+  spell_select: {
+    title: 'Spell cards',
     body:
-      'Curses are spell cards that weaken an enemy lane (−2 Power to all their ' +
-      'cards there) for the rest of the round.\n\n' +
-      "Use them on the enemy's strongest lane to flip the lead. The debuff " +
-      'clears at round end.',
-    position: 'middle',
-  },
-  cleanse_hint: {
-    title: 'Cleanses',
-    body:
-      'Cleanses remove a curse from one of your lanes — restoring your Power.\n\n' +
-      "Save them for when an enemy curse is hurting you. Don't waste them on " +
-      'undebuffed lanes.',
+      'Spell cards have unique effects — some buff your units, some weaken ' +
+      "enemies, some clear curses. Read each card's text before playing. " +
+      'Long-press a card to see full details.',
     position: 'middle',
   },
   tutorial_complete: {

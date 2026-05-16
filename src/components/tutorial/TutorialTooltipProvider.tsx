@@ -18,8 +18,7 @@ export type TooltipTrigger =
   | 'first_round_ended'
   | 'commander_activate_hint'
   | 'enemy_passed'
-  | 'curse_hint'
-  | 'cleanse_hint'
+  | 'spell_select'
   | 'tutorial_complete';
 
 type TutorialTooltipContextType = {

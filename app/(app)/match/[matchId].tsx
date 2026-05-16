@@ -337,33 +337,17 @@ function MatchScreenInner() {
     if (!used) showTooltip('commander_activate_hint');
   }, [isTutorial, user, session, showTooltip]);
 
-  // curse_hint: fires the first time a curse appears in the player's hand.
+  // spell_select: fires once the first time the player selects a Spell card.
+  // Replaces the older curse_hint / cleanse_hint pair — one unified message
+  // since the tutorial deck has 1 curse and 1 cleanse and hand-watching for
+  // each class separately was fragile.
   useEffect(() => {
-    if (!isTutorial || !user || !session) return;
-    const me: Side = user.uid === session.player_b_id ? 'player_b' : 'player_a';
-    for (const card of cards) {
-      if (card.owner !== me || card.location_state !== 'hand') continue;
-      const entry = cardLibraryMap.get(card.card_id);
-      if (entry?.card_type === 'Spell' && entry.klass === 'Curse') {
-        showTooltip('curse_hint');
-        break;
-      }
-    }
-  }, [isTutorial, user, session, cards, cardLibraryMap, showTooltip]);
-
-  // cleanse_hint: fires the first time a cleanse appears in the player's hand.
-  useEffect(() => {
-    if (!isTutorial || !user || !session) return;
-    const me: Side = user.uid === session.player_b_id ? 'player_b' : 'player_a';
-    for (const card of cards) {
-      if (card.owner !== me || card.location_state !== 'hand') continue;
-      const entry = cardLibraryMap.get(card.card_id);
-      if (entry?.card_type === 'Spell' && entry.klass === 'Cleanse') {
-        showTooltip('cleanse_hint');
-        break;
-      }
-    }
-  }, [isTutorial, user, session, cards, cardLibraryMap, showTooltip]);
+    if (!isTutorial || !selectedInstanceId) return;
+    const card = cards.find((c) => c.instance_id === selectedInstanceId);
+    if (!card) return;
+    const entry = cardLibraryMap.get(card.card_id);
+    if (entry?.card_type === 'Spell') showTooltip('spell_select');
+  }, [isTutorial, selectedInstanceId, cards, cardLibraryMap, showTooltip]);
 
   // ---- guards ----
 
