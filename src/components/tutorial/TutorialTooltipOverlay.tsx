@@ -94,13 +94,6 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, TooltipContent> = {
       'Long-press a card to see full details.',
     position: 'middle',
   },
-  tutorial_complete: {
-    title: 'Tutorial Complete',
-    body:
-      "Well done. You're ready for real matches. Claim your starting rewards " +
-      'and begin your campaign.',
-    position: 'middle',
-  },
 };
 
 function positionStyle(position: TooltipPosition): ViewStyle {

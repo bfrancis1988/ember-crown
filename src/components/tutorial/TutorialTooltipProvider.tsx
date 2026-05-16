@@ -18,8 +18,7 @@ export type TooltipTrigger =
   | 'first_round_ended'
   | 'commander_activate_hint'
   | 'enemy_passed'
-  | 'spell_select'
-  | 'tutorial_complete';
+  | 'spell_select';
 
 type TutorialTooltipContextType = {
   showTooltip: (trigger: TooltipTrigger) => void;
