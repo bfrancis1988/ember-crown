@@ -55,9 +55,14 @@ export async function buildBotDeckCardIds(
   let pool: string[];
   if (maxRarity) {
     const maxIdx = RARITY_ORDER.indexOf(maxRarity);
-    const eligible = allCards.filter(
-      (c) => RARITY_ORDER.indexOf(c.rarity) <= maxIdx,
-    );
+    // Update 1.0.3 — require idx >= 0 so a card with a malformed or missing
+    // rarity field (indexOf returns -1) can't sneak past the filter. Without
+    // this guard, any garbage rarity would satisfy -1 <= maxIdx and inflate
+    // the pool with unintended cards.
+    const eligible = allCards.filter((c) => {
+      const idx = RARITY_ORDER.indexOf(c.rarity);
+      return idx >= 0 && idx <= maxIdx;
+    });
     pool = eligible.length > 0
       ? eligible.map((c) => c.card_id)
       : allCards.map((c) => c.card_id);
