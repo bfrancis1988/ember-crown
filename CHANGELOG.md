@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.0.3 — 2026-05-15
+
+### Tutorial improvements
+
+- Tutorial tooltips now appear at the right moments — when you need
+  to know, not after you've already done it.
+- New "It's your turn" prompt explains tap-to-select.
+- New optimal lane hint points out the green-glowing lane when you
+  select a unit.
+- The Pass button is now explained when the enemy passes (instead
+  of after you accidentally tap it).
+- The Commander tooltip now appears once your commander is buffing
+  your lanes, with clear "tap your Commander" direction.
+- Spell card hint explains that effects vary and to read each card.
+- Several wording fixes: tutorial no longer says "drag" when the UI
+  is tap-based.
+
+### Internal
+
+- Removed dead tutorial_complete tooltip code.
+
 ## v1.0.2 — 2026-05-14
 
 ### New: Play as Guest
