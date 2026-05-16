@@ -84,9 +84,56 @@ export async function buildBotDeckCardIds(
 }
 
 /**
+ * Update 1.0.3 — read the player's active deck slots and return the highest
+ * rarity actually present in the deck they're bringing to the match. This is
+ * the cap source used by initializeNewMatch for solo + campaign opponents.
+ *
+ * Preferred over getPlayerBestOwnedRarity because a player can pull a
+ * Legendary in a faction they don't run (e.g. Premium Summon roll), and we
+ * don't want that to inflate the bot's deck for their starter-faction match.
+ *
+ * Floor: 'Uncommon' (matches getPlayerBestOwnedRarity). Returned for empty
+ * decks too, so a brand-new account with no slots still gets a sane cap.
+ */
+export async function getPlayerActiveDeckMaxRarity(
+  uid: string,
+  db: Firestore,
+): Promise<Rarity> {
+  const slotsSnap = await db
+    .collection('player_active_decks')
+    .doc(uid)
+    .collection('slots')
+    .get();
+
+  if (slotsSnap.empty) return 'Uncommon';
+
+  const cardIds = slotsSnap.docs
+    .map((d) => d.data().card_id as string | undefined)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+  if (cardIds.length === 0) return 'Uncommon';
+
+  const refs = cardIds.map((id) => db.collection('card_library').doc(id));
+  const docs = await db.getAll(...refs);
+
+  let bestIdx = RARITY_ORDER.indexOf('Uncommon');
+  for (const d of docs) {
+    if (!d.exists) continue;
+    const rarity = d.data()!.rarity as Rarity;
+    const idx = RARITY_ORDER.indexOf(rarity);
+    if (idx > bestIdx) bestIdx = idx;
+  }
+  return RARITY_ORDER[bestIdx];
+}
+
+/**
  * Phase 9.4.3B — read player inventory and return the highest rarity they own
  * (any quantity_owned >= 1). Returns 'Uncommon' as the floor for fresh
  * accounts so the tutorial / first solo match stays friendly.
+ *
+ * Update 1.0.3 — kept for future use (matchmaking, achievements). The
+ * solo + campaign bot cap now uses getPlayerActiveDeckMaxRarity instead,
+ * because owning a card and bringing it into a match aren't the same thing.
  */
 export async function getPlayerBestOwnedRarity(
   uid: string,
