@@ -17,6 +17,13 @@
 - Several wording fixes: tutorial no longer says "drag" when the UI
   is tap-based.
 
+### AI difficulty fixes
+
+- Solo and campaign AI opponents now cap their deck rarity at the
+  highest rarity in your active deck, not your inventory. Pulling a
+  Legendary in a faction you don't play no longer makes your starter
+  matches unwinnable.
+
 ### Internal
 
 - Removed dead tutorial_complete tooltip code.
