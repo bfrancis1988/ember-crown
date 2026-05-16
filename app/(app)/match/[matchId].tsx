@@ -306,7 +306,28 @@ function MatchScreenInner() {
     if (oppPassedNow && !mePassed) showTooltip('enemy_passed');
   }, [isTutorial, user, session, showTooltip]);
 
-  // commander_activate_hint: fires from round 2 onward while commander is unused.
+  // commander_activate_hint primary: fires once the player has at least one
+  // unit on a lane AND their commander is still unused — the moment when
+  // activating would actually do something useful.
+  useEffect(() => {
+    if (!isTutorial || !user || !session) return;
+    const me: Side = user.uid === session.player_b_id ? 'player_b' : 'player_a';
+    const used =
+      me === 'player_a' ? session.player_a_commander_used : session.player_b_commander_used;
+    if (used) return;
+    const hasUnitOnLane = cards.some(
+      (c) =>
+        c.owner === me &&
+        (c.location_state === 'melee' ||
+          c.location_state === 'ranged' ||
+          c.location_state === 'siege'),
+    );
+    if (hasUnitOnLane) showTooltip('commander_activate_hint');
+  }, [isTutorial, user, session, cards, showTooltip]);
+
+  // commander_activate_hint fallback: if round 2 starts and the player still
+  // hasn't seen the hint (no units placed in round 1), fire it anyway.
+  // Provider dedupe ensures only one of the two effects shows the tooltip.
   useEffect(() => {
     if (!isTutorial || !user || !session) return;
     if (session.current_round < 2) return;

@@ -74,14 +74,11 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, TooltipContent> = {
     position: 'middle',
   },
   commander_activate_hint: {
-    title: 'Your Commander',
+    title: 'Use your Commander',
     body:
-      'Your commander has a passive ability and an active ability.\n\n' +
-      "The active ability buffs one specific lane (your commander's specialty) " +
-      'with +1 Power per card you have there. It lasts the rest of the match ' +
-      'and can only be used once.\n\n' +
-      'Time it carefully — activating early gives more value, but in the wrong ' +
-      "lane it's wasted.",
+      'Your Commander has an active ability that buffs your units in a ' +
+      'chosen lane (+1 per card). Tap your Commander icon to activate — ' +
+      'one use per match.',
     position: 'bottom-left',
   },
   enemy_passed: {
