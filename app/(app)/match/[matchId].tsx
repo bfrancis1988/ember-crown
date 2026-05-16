@@ -245,6 +245,16 @@ function MatchScreenInner() {
     if (isTutorial) showTooltip('match_start');
   }, [isTutorial, showTooltip]);
 
+  // optimal_lane_select: fires once the first time the player selects a Unit
+  // card. Teaches the green-glow optimal-lane hint before they pick a lane.
+  useEffect(() => {
+    if (!isTutorial || !selectedInstanceId) return;
+    const card = cards.find((c) => c.instance_id === selectedInstanceId);
+    if (!card) return;
+    const entry = cardLibraryMap.get(card.card_id);
+    if (entry?.card_type === 'Unit') showTooltip('optimal_lane_select');
+  }, [isTutorial, selectedInstanceId, cards, cardLibraryMap, showTooltip]);
+
   // first_card_played: fires the first time any of the player's cards reaches a lane.
   useEffect(() => {
     if (!isTutorial || !user || !session) return;

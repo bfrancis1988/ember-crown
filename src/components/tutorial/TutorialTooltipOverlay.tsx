@@ -41,6 +41,13 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, TooltipContent> = {
       'of three lanes.',
     position: 'middle',
   },
+  optimal_lane_select: {
+    title: 'Find the best lane',
+    body:
+      'The green-glowing lane is best for your card. Playing it there ' +
+      'gives +2 power. Tap the lane to play.',
+    position: 'top',
+  },
   first_card_played: {
     title: 'Lane Power',
     body:

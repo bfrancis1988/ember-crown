@@ -12,6 +12,7 @@ import React, {
 
 export type TooltipTrigger =
   | 'match_start'
+  | 'optimal_lane_select'
   | 'first_card_played'
   | 'first_optimal_lane_bonus'
   | 'first_round_ended'
