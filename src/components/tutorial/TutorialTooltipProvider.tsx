@@ -17,7 +17,7 @@ export type TooltipTrigger =
   | 'first_optimal_lane_bonus'
   | 'first_round_ended'
   | 'commander_activate_hint'
-  | 'first_pass'
+  | 'enemy_passed'
   | 'curse_hint'
   | 'cleanse_hint'
   | 'tutorial_complete';

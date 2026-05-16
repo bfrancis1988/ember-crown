@@ -293,6 +293,19 @@ function MatchScreenInner() {
     if (session.current_round >= 2) showTooltip('first_round_ended');
   }, [isTutorial, session, showTooltip]);
 
+  // enemy_passed: fires once when the bot has passed but the player hasn't.
+  // Bot's tutorial script plays 2 cards then passes in round 1, so by the
+  // time this fires the player has had 1-2 turns. Teaches the Pass button.
+  useEffect(() => {
+    if (!isTutorial || !user || !session) return;
+    const me: Side = user.uid === session.player_b_id ? 'player_b' : 'player_a';
+    const oppPassedNow =
+      me === 'player_a' ? session.player_b_passed : session.player_a_passed;
+    const mePassed =
+      me === 'player_a' ? session.player_a_passed : session.player_b_passed;
+    if (oppPassedNow && !mePassed) showTooltip('enemy_passed');
+  }, [isTutorial, user, session, showTooltip]);
+
   // commander_activate_hint: fires from round 2 onward while commander is unused.
   useEffect(() => {
     if (!isTutorial || !user || !session) return;
@@ -508,7 +521,6 @@ function MatchScreenInner() {
 
   async function handlePass() {
     if (!matchId) return;
-    if (isTutorial) showTooltip('first_pass');
     setActionLoading(true);
     setActionError(null);
     try {

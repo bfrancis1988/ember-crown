@@ -84,14 +84,11 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, TooltipContent> = {
       "lane it's wasted.",
     position: 'bottom-left',
   },
-  first_pass: {
-    title: 'Passing',
+  enemy_passed: {
+    title: 'The enemy passed',
     body:
-      "Passing means you're done for this round. Once both players pass, the " +
-      'round ends.\n\n' +
-      "Strategy: pass early if you've sealed a lead and want to save cards for " +
-      "next round. Pass late to maximize lanes you've won. Passing isn't giving " +
-      "up — it's a tactical choice.",
+      "They're locked in for this round. Keep playing to claim more lane " +
+      'wins, or tap Pass to save your hand for next round.',
     position: 'bottom-right',
   },
   curse_hint: {
