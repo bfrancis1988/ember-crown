@@ -19,6 +19,7 @@ import {
   buildBoardStateDocs,
   pickFirstTurn,
   getPlayerBestOwnedRarity,
+  getPlayerActiveDeckMaxRarity,
 } from './buildMatch';
 import { executeAITurnInternal } from './executeAITurn';
 import { resolveBattleOpponent } from './findBattleOpponent';
@@ -214,15 +215,16 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
       }
       playerACardIds = deckSnap.docs.map((d) => d.data().card_id as string);
 
-      // 3. Bot side. Phase 9.4.3B — cap bot deck rarity at the player's best
-      // owned rarity. Stops a fresh-account player with only Common/Uncommon
-      // cards from facing a bot deck full of Legendaries.
+      // 3. Bot side. Update 1.0.3 — cap bot deck rarity at the highest rarity
+      // in the player's *active deck*, not their inventory. Stops a player who
+      // pulled a Legendary from a non-active faction (Premium Summon) from
+      // facing a bot scaled to that rarity.
       const botFaction = profile.active_faction as string;
-      const maxRarity = await getPlayerBestOwnedRarity(uid, db);
+      const maxRarity = await getPlayerActiveDeckMaxRarity(uid, db);
       playerBCardIds = await buildBotDeckCardIds(botFaction, db, maxRarity);
       playerACommanderId = profile.selected_commander as string;
       botCommanderId = await pickBotCommander(botFaction, db);
-      logger.info('Bot deck capped by player rarity', {
+      logger.info('Bot deck capped by active deck rarity', {
         uid,
         bot_faction: botFaction,
         max_rarity: maxRarity,
