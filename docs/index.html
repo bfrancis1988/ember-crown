@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Ember Crown — a dark fantasy collectible card game for iOS. Build your deck, master the lanes, and claim the Ember Crown.">
+  <title>Ember Crown — A Dark Fantasy Card Game</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100%;
+      color: #e8dcc8;
+      font-family: Georgia, 'Times New Roman', serif;
+      line-height: 1.6;
+    }
+    body {
+      background:
+        radial-gradient(ellipse at top, rgba(180, 60, 20, 0.18), transparent 60%),
+        radial-gradient(ellipse at bottom, rgba(120, 30, 10, 0.12), transparent 70%),
+        #0d0807;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 48px 24px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: clamp(2.5rem, 8vw, 4.5rem);
+      letter-spacing: 0.04em;
+      color: #e8b657;
+      text-shadow: 0 0 24px rgba(232, 182, 87, 0.35), 0 2px 0 #5a2a08;
+      margin-bottom: 12px;
+      font-weight: normal;
+    }
+    .tagline {
+      font-size: clamp(1rem, 3vw, 1.25rem);
+      color: #c89763;
+      font-style: italic;
+      letter-spacing: 0.06em;
+      margin-bottom: 32px;
+    }
+    .divider {
+      width: 80px;
+      height: 1px;
+      background: linear-gradient(to right, transparent, #b87333, transparent);
+      margin: 0 auto 32px;
+    }
+    .description {
+      font-size: 1.05rem;
+      color: #d4c4a8;
+      margin-bottom: 40px;
+      max-width: 540px;
+    }
+    .cta {
+      display: inline-block;
+      background: linear-gradient(180deg, #d4a256, #a06824);
+      color: #1a0d05;
+      padding: 14px 36px;
+      text-decoration: none;
+      font-size: 1.1rem;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      border-radius: 4px;
+      border: 1px solid #e8b657;
+      box-shadow: 0 4px 16px rgba(180, 100, 30, 0.4);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(232, 182, 87, 0.5);
+    }
+    footer {
+      padding: 32px 24px;
+      text-align: center;
+      border-top: 1px solid rgba(184, 115, 51, 0.2);
+      color: #8a7556;
+      font-size: 0.9rem;
+    }
+    footer a {
+      color: #c89763;
+      text-decoration: none;
+      margin: 0 12px;
+    }
+    footer a:hover {
+      color: #e8b657;
+      text-decoration: underline;
+    }
+    .copyright {
+      margin-top: 12px;
+      font-size: 0.8rem;
+      color: #5a4e3a;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Ember Crown</h1>
+    <p class="tagline">A dark fantasy card game</p>
+    <div class="divider"></div>
+    <p class="description">
+      Build your deck, master the lanes, and claim the Ember Crown in this strategic fantasy card game. Command six distinct factions across three-lane battles, summoning units and casting spells to outwit your opponent.
+    </p>
+    <a class="cta" href="https://apps.apple.com/us/app/ember-crown/id6768315807">Download on the App Store</a>
+  </main>
+  <footer>
+    <a href="https://app.termly.io/policy-viewer/policy.html?policyUUID=ed4990b7-7970-4b17-992d-ad4514360130">Privacy Policy</a>
+    <a href="https://app.termly.io/policy-viewer/policy.html?policyUUID=aecff60c-1477-4f2a-bae6-a32949054fae">Terms of Service</a>
+    <a href="mailto:brad91936@gmail.com">Support</a>
+    <div class="copyright">© 2026 Ember Crown</div>
+  </footer>
+</body>
+</html>
