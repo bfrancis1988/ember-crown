@@ -35,16 +35,10 @@ type TooltipContent = {
 
 const TOOLTIP_CONTENT: Record<TooltipTrigger, TooltipContent> = {
   match_start: {
-    title: 'Welcome to Ember Crown',
+    title: "It's your turn",
     body:
-      'Each match plays out over 3 rounds. In every round, you and your ' +
-      'opponent contest 3 lanes — Melee, Ranged, and Siege. The lane with ' +
-      'the highest Power earns 1 Victory Point.\n\n' +
-      'After 3 rounds, the player with the most Victory Points wins. Total ' +
-      'lanes won across the whole match is what counts.\n\n' +
-      'Drag a card from your hand to a lane to play it. Each card has Power, ' +
-      'and Lane Power = sum of all your cards there. Highest Power per lane ' +
-      'wins that lane.',
+      'Tap a card in your hand to select it. You can then place it in one ' +
+      'of three lanes.',
     position: 'middle',
   },
   first_card_played: {
