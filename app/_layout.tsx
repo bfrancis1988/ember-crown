@@ -2,6 +2,10 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
+import {
+  SafeAreaProvider,
+  initialWindowMetrics,
+} from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { SaveProgressProvider } from '../src/contexts/SaveProgressContext';
 import { GlobalBackground } from '../src/components/navigation/GlobalBackground';
@@ -48,12 +52,14 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <View style={styles.root}>
-        <GlobalBackground />
-        <RootLayoutNav />
-      </View>
-    </AuthProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <AuthProvider>
+        <View style={styles.root}>
+          <GlobalBackground />
+          <RootLayoutNav />
+        </View>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 
