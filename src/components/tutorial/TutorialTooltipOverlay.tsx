@@ -65,12 +65,10 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, TooltipContent> = {
     position: 'top',
   },
   first_round_ended: {
-    title: 'Round End',
+    title: 'Round over',
     body:
-      'Round 1 over. Lanes you won earn Victory Points (VP). The board clears, ' +
-      'debuffs clear, and you draw 2 new cards.\n\n' +
-      "Two more rounds to go. Plan ahead — cards you save now are cards " +
-      "you'll have for the next round.",
+      'VP is awarded for each lane you won. The board clears, debuffs ' +
+      'reset, and you draw 2 new cards.',
     position: 'middle',
   },
   commander_activate_hint: {
