@@ -51,12 +51,8 @@ const TOOLTIP_CONTENT: Record<TooltipTrigger, TooltipContent> = {
   first_card_played: {
     title: 'Lane Power',
     body:
-      'Lane Power tells the story of each lane.\n\n' +
-      'Cards have a base Power, but it can change:\n' +
-      '• +2 if played in their optimal lane (their preferred terrain)\n' +
-      '• +1 per card if your commander is active in this lane\n' +
-      '• −2 if the lane is cursed\n\n' +
-      'Watch the colors: green = buffed, red = debuffed, gold = default.',
+      'Each card in a lane adds to its Lane Power. Colors show: ' +
+      'green = optimal lane, gold = commander buff, red = cursed.',
     position: 'top',
   },
   first_optimal_lane_bonus: {
