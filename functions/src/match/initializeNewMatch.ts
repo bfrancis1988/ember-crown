@@ -139,9 +139,25 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
       playerACardIds = deckSnap.docs.map((d) => d.data().card_id as string);
       playerACommanderId = profile.selected_commander as string;
 
-      // Player B uses stage's opponent configuration
-      playerBCardIds = [...campaignStage.opponent_deck_card_ids];
+      // Player B: Update 1.0.3 — same active-deck rarity cap as solo. The
+      // pre-seeded opponent_deck_card_ids cycled through all faction Units
+      // without a rarity filter, so a fresh player on stage 1 could face
+      // Epics/Legendaries. Now we generate a capped deck from the stage's
+      // faction. Boss special rules (debuff strength, extra round draw,
+      // starting_lane_buff preplacement) still apply below.
+      const campaignMaxRarity = await getPlayerActiveDeckMaxRarity(uid, db);
+      playerBCardIds = await buildBotDeckCardIds(
+        campaignStage.faction,
+        db,
+        campaignMaxRarity,
+      );
       botCommanderId = campaignStage.opponent_commander_id;
+      logger.info('Campaign bot deck capped by active deck rarity', {
+        uid,
+        stage_id: campaignStage.stage_id,
+        bot_faction: campaignStage.faction,
+        max_rarity: campaignMaxRarity,
+      });
     } else if (mode === 'battle_mode') {
       // Update 1.0.2: Battle Mode requires a permanent account. Mirrors
       // the check in findBattleOpponent — closes the bypass where a
