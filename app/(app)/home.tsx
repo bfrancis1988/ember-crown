@@ -304,6 +304,11 @@ function LandingView({ username, onSignOut, isSigningOut }: LandingViewProps) {
             label="Campaign"
             onPress={() => router.push('/campaign')}
           />
+          <QuickAction
+            icon="📖"
+            label="Card Library"
+            onPress={() => router.push('/library')}
+          />
           {profile && !profile.tutorial_completed && (
             <QuickAction
               icon="📜"
