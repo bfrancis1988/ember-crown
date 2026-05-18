@@ -25,3 +25,4 @@ export { saveDeck } from './decks/saveDeck';
 export { deleteSavedDeck } from './decks/deleteSavedDeck';
 export { setActiveSavedDeck } from './decks/setActiveSavedDeck';
 export { findBattleOpponent } from './match/findBattleOpponent';
+export { updateBossRewards } from './migrations/updateBossRewards';
