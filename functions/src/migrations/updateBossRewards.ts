@@ -5,9 +5,28 @@
 // scripts/seed-data/campaign_stages.ts. Seed data only takes effect for new
 // installs; existing Firestore docs need an explicit update.
 //
-// Trigger: HTTPS GET/POST. Admin-only via the x-admin-uid header — must
-// match the hardcoded ADMIN_UID. Idempotent: re-running after the values
-// already match is a no-op for the wallet and logs a skip per stage.
+// Trigger: HTTPS GET/POST.
+//
+// Auth: Firebase ID-token verification.
+//   - Caller must send `Authorization: Bearer <id_token>`.
+//   - Token is verified server-side with admin.auth().verifyIdToken().
+//   - 401 — header missing, malformed, or token rejected by verifyIdToken.
+//   - 403 — token verifies but decoded.uid !== ADMIN_UID.
+//   - Header spoofing is not possible because the token is a Firebase-signed
+//     JWT, not a value the client picks.
+//
+// Calling it: this is a one-shot deploy migration, not a routine endpoint.
+// The practical workflow:
+//   1. Sign in as the admin user (UID OC1tZd0jtvX7Sahm4LqMp8aBC0J2) in the
+//      Ember Crown app, the Firebase emulator UI, or via the Firebase Console
+//      custom-token flow.
+//   2. Grab a fresh ID token: `firebase.auth().currentUser.getIdToken()`.
+//      Tokens expire after 1 hour — refresh if the call fails with 401.
+//   3. curl -H "Authorization: Bearer <token>" \
+//        https://us-central1-<project-id>.cloudfunctions.net/updateBossRewards
+//
+// Idempotent: re-running after the values already match is a no-op for the
+// stage doc and logs a skip per stage.
 
 import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
@@ -35,15 +54,41 @@ type StageResult =
 export const updateBossRewards = onRequest(
   { region: 'us-central1' },
   async (req, res) => {
-    const callerUid = req.get('x-admin-uid');
-    if (callerUid !== ADMIN_UID) {
-      logger.warn('updateBossRewards rejected — bad admin header', {
-        provided: callerUid ?? '<missing>',
+    // ── Auth: Bearer ID token ────────────────────────────────────────────
+    const authHeader = req.get('authorization') ?? req.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      logger.warn('updateBossRewards rejected — missing or malformed Authorization header');
+      res.status(401).json({ success: false, error: 'unauthorized' });
+      return;
+    }
+
+    const idToken = authHeader.slice('Bearer '.length).trim();
+    if (!idToken) {
+      logger.warn('updateBossRewards rejected — empty bearer token');
+      res.status(401).json({ success: false, error: 'unauthorized' });
+      return;
+    }
+
+    let decoded: admin.auth.DecodedIdToken;
+    try {
+      decoded = await admin.auth().verifyIdToken(idToken);
+    } catch (err) {
+      logger.warn('updateBossRewards rejected — verifyIdToken failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      res.status(401).json({ success: false, error: 'unauthorized' });
+      return;
+    }
+
+    if (decoded.uid !== ADMIN_UID) {
+      logger.warn('updateBossRewards rejected — non-admin uid', {
+        uid: decoded.uid,
       });
       res.status(403).json({ success: false, error: 'forbidden' });
       return;
     }
 
+    // ── Migration body ───────────────────────────────────────────────────
     const db = admin.firestore();
     const results: StageResult[] = [];
 
@@ -97,6 +142,7 @@ export const updateBossRewards = onRequest(
     const missing = results.filter((r) => r.status === 'skipped_missing').length;
 
     logger.info('updateBossRewards migration complete', {
+      caller_uid: decoded.uid,
       updated,
       skipped_already_current: skippedCurrent,
       missing,
