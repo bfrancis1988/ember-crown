@@ -13,8 +13,8 @@ import { FieldValue } from 'firebase-admin/firestore';
 import {
   MATCH_REWARD_COINS_MIN, MATCH_REWARD_COINS_MAX, MATCH_REWARD_COINS_LOSS,
   MATCH_REWARD_SHARDS_WIN, MATCH_REWARD_SHARDS_LOSS,
-  MATCH_REWARD_SHARD_STREAK_WINS,
 } from '../lib/matchConstants';
+import { applyShardStreak } from '../lib/shardStreak';
 import type { MatchSession } from '../types/match';
 import type { ClaimMatchRewardsResult } from '../types/actions';
 
@@ -73,20 +73,10 @@ export const claimMatchRewards = onCall<ClaimInput, Promise<ClaimMatchRewardsRes
       const baseShardsEarned = isVictory ? MATCH_REWARD_SHARDS_WIN : MATCH_REWARD_SHARDS_LOSS;
 
       // Streak-based shard: every Nth win grants +1 shard and resets the counter.
+      // Pure logic lives in lib/shardStreak.ts so it can be unit-tested.
       const profileData = profileSnap.exists ? profileSnap.data() : undefined;
       const priorStreak = (profileData?.wins_since_last_shard as number | undefined) ?? 0;
-
-      let newStreak = priorStreak;
-      let streakShard = 0;
-      if (isVictory) {
-        const nextStreak = priorStreak + 1;
-        if (nextStreak >= MATCH_REWARD_SHARD_STREAK_WINS) {
-          streakShard = 1;
-          newStreak = 0;
-        } else {
-          newStreak = nextStreak;
-        }
-      }
+      const { streakShard, newStreak } = applyShardStreak(priorStreak, isVictory);
 
       const shardsEarned = baseShardsEarned + streakShard;
 
