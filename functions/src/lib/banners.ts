@@ -18,7 +18,7 @@ export const BANNERS: Banner[] = [
   {
     id: 'common',
     name: 'Common Summon',
-    cost: 100,
+    cost: 300,
     currency: 'coins',
     weights: { Common: 78, Uncommon: 18, Rare: 4, Epic: 0, Legendary: 0 },
     description: 'A modest summon. Mostly common cards.',
@@ -26,9 +26,9 @@ export const BANNERS: Banner[] = [
   {
     id: 'rare',
     name: 'Rare Summon',
-    cost: 1,
+    cost: 4,
     currency: 'shards',
-    weights: { Common: 0, Uncommon: 50, Rare: 35, Epic: 12, Legendary: 3 },
+    weights: { Common: 0, Uncommon: 60, Rare: 30, Epic: 9, Legendary: 1 },
     description: 'A focused summon. Higher-tier cards.',
   },
   {

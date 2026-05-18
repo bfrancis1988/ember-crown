@@ -130,7 +130,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
       commander_pre_activated: true,
       extra_round_draw: 1,
     },
-    rewards: { coins: 400, shards: 10, keys: 1 },
+    rewards: { coins: 300, shards: 4, keys: 1 },
     unlocks_factions: ['Iron Pact'],
   },
 
@@ -247,7 +247,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
       // Forge attrition: Bregor draws 2 extra cards per round-end. The forge never stops.
       extra_round_draw: 2,
     },
-    rewards: { coins: 400, shards: 10, keys: 1 },
+    rewards: { coins: 300, shards: 4, keys: 1 },
     unlocks_factions: ['Arborea Kingdom', 'Ashen Swarm'],
   },
 
@@ -364,7 +364,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
       starting_lane_buff: { lane: 'Ranged', card_count: 2 },
       extra_round_draw: 1,
     },
-    rewards: { coins: 400, shards: 10, keys: 1 },
+    rewards: { coins: 300, shards: 4, keys: 1 },
     unlocks_factions: ['Obsidian Empire', 'Feral Hollow'],
   },
 
@@ -481,7 +481,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
       commander_pre_activated: true,
       debuff_strength_override: 3,
     },
-    rewards: { coins: 400, shards: 10, keys: 1 },
+    rewards: { coins: 300, shards: 4, keys: 1 },
     unlocks_factions: ['Obsidian Empire', 'Feral Hollow'],
   },
 
@@ -598,7 +598,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
       starting_lane_buff: { lane: 'Melee', card_count: 2 },
       extra_round_draw: 1,
     },
-    rewards: { coins: 400, shards: 10, keys: 1 },
+    rewards: { coins: 300, shards: 4, keys: 1 },
     // Terminal faction — no further unlocks.
   },
 
@@ -715,7 +715,7 @@ export const CAMPAIGN_STAGES: CampaignStageSeed[] = [
       commander_pre_activated: true,
       debuff_strength_override: 3,
     },
-    rewards: { coins: 400, shards: 10, keys: 1 },
+    rewards: { coins: 300, shards: 4, keys: 1 },
     // Terminal faction — no further unlocks.
   },
 ];

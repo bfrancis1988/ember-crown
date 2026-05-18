@@ -3,10 +3,16 @@
 // claimMatchRewards (solo no-ad) nor recordCampaignWin (campaign no-ad) — those
 // stay for the no-ad path. Discriminates on session.mode and applies the bonus
 // formula:
-//   Win  + ad: 2× the no-ad payout
-//   Loss + ad: 50% of the win baseline (floored), no keys, no progression
+//   Solo / battle_mode win  + ad: floor(SOLO_WIN_COIN_BASELINE * 1.5)
+//   Solo / battle_mode loss + ad: floor(MATCH_REWARD_COINS_LOSS * 1.5)
+//   Campaign win  + ad: floor(base * 1.5) for coins/shards; keys unchanged (no ad bonus)
+//   Campaign loss + ad: floor(firstWin * 0.5) for coins/shards, no keys, no progression
 // Tutorial mode is rejected — completeTutorial keeps its 100c+1s+1k reward and
 // has no ad option.
+//
+// Update 1.0.5: ad win multiplier reduced 2× → 1.5×; key ad bonus removed
+// entirely on campaign first-clear; solo loss base switched from win-baseline
+// to the no-ad loss constant.
 //
 // One ad per match: the new ad_reward_claimed flag plus player_a_claimed both
 // gate further claims. The successful path sets both flags atomically with the
@@ -22,6 +28,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import {
   MATCH_REWARD_COINS_MIN,
   MATCH_REWARD_COINS_MAX,
+  MATCH_REWARD_COINS_LOSS,
 } from '../lib/matchConstants';
 import type { MatchSession } from '../types/match';
 import type { CampaignStage } from '../types/campaign';
@@ -40,11 +47,14 @@ type ClaimWithAdResult = {
   wallet_after: { coins: number; shards: number; keys: number; dust: number };
 };
 
-// Fixed midpoint of the random 90-150 win range used by claimMatchRewards.
+// Fixed midpoint of the random no-ad solo win range used by claimMatchRewards.
 // Deterministic so the ad-bonus value is predictable to the player.
 const SOLO_WIN_COIN_BASELINE = Math.floor(
   (MATCH_REWARD_COINS_MIN + MATCH_REWARD_COINS_MAX) / 2,
 );
+
+const AD_WIN_MULTIPLIER = 1.5;
+const AD_LOSS_MULTIPLIER = 0.5;
 
 export const claimMatchRewardsWithAd = onCall<ClaimWithAdInput, Promise<ClaimWithAdResult>>(
   { region: 'us-central1' },
@@ -171,18 +181,35 @@ export const claimMatchRewardsWithAd = onCall<ClaimWithAdInput, Promise<ClaimWit
       }
 
       // ── Apply ad multiplier ──────────────────────────────────────────────
+      // Update 1.0.5: 1.5× win bonus (down from 2×); keys no longer
+      // ad-boosted on campaign first-clear; solo loss base is the no-ad loss
+      // constant rather than the solo win baseline.
       let coinsEarned: number;
       let shardsEarned: number;
       let keysEarned: number;
 
       if (isWin) {
-        coinsEarned = baseCoins * 2;
-        shardsEarned = baseShards * 2;
-        keysEarned = baseKeys * 2;
+        if (session.mode === 'solo' || session.mode === 'battle_mode') {
+          coinsEarned = Math.floor(SOLO_WIN_COIN_BASELINE * AD_WIN_MULTIPLIER);
+          shardsEarned = Math.floor(baseShards * AD_WIN_MULTIPLIER);
+          keysEarned = 0;
+        } else {
+          // Campaign win (first-clear or replay)
+          coinsEarned = Math.floor(baseCoins * AD_WIN_MULTIPLIER);
+          shardsEarned = Math.floor(baseShards * AD_WIN_MULTIPLIER);
+          keysEarned = baseKeys;
+        }
       } else {
-        coinsEarned = Math.floor(baseCoins / 2);
-        shardsEarned = Math.floor(baseShards / 2);
-        keysEarned = 0;
+        if (session.mode === 'solo' || session.mode === 'battle_mode') {
+          coinsEarned = Math.floor(MATCH_REWARD_COINS_LOSS * AD_WIN_MULTIPLIER);
+          shardsEarned = 0;
+          keysEarned = 0;
+        } else {
+          // Campaign loss + ad: 50% of first-win amount; no keys, no progression.
+          coinsEarned = Math.floor(baseCoins * AD_LOSS_MULTIPLIER);
+          shardsEarned = Math.floor(baseShards * AD_LOSS_MULTIPLIER);
+          keysEarned = 0;
+        }
       }
 
       // ── Writes ───────────────────────────────────────────────────────────
@@ -253,6 +280,8 @@ export const claimMatchRewardsWithAd = onCall<ClaimWithAdInput, Promise<ClaimWit
         shards_earned: shardsEarned,
         keys_earned: keysEarned,
         factions_unlocked: factionsToUnlock,
+        ad_win_multiplier: AD_WIN_MULTIPLIER,
+        ad_loss_multiplier: AD_LOSS_MULTIPLIER,
       });
 
       return {
