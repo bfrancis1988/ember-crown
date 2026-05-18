@@ -9,11 +9,12 @@ export const DECK_SIZE = 15;
 export const MAX_ROUNDS = 3;
 export const END_ROUND_DRAW_COUNT = 2;
 
-export const MATCH_REWARD_COINS_MIN = 90;
-export const MATCH_REWARD_COINS_MAX = 150;
-export const MATCH_REWARD_COINS_LOSS = 10;
-export const MATCH_REWARD_SHARDS_WIN = 1;
+export const MATCH_REWARD_COINS_MIN = 50;
+export const MATCH_REWARD_COINS_MAX = 80;
+export const MATCH_REWARD_COINS_LOSS = 5;
+export const MATCH_REWARD_SHARDS_WIN = 0;
 export const MATCH_REWARD_SHARDS_LOSS = 0;
+export const MATCH_REWARD_SHARD_STREAK_WINS = 5;
 
 export const AI_BOT_UID = 'AI_BOT';
 

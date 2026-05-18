@@ -13,6 +13,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import {
   MATCH_REWARD_COINS_MIN, MATCH_REWARD_COINS_MAX, MATCH_REWARD_COINS_LOSS,
   MATCH_REWARD_SHARDS_WIN, MATCH_REWARD_SHARDS_LOSS,
+  MATCH_REWARD_SHARD_STREAK_WINS,
 } from '../lib/matchConstants';
 import type { MatchSession } from '../types/match';
 import type { ClaimMatchRewardsResult } from '../types/actions';
@@ -34,6 +35,7 @@ export const claimMatchRewards = onCall<ClaimInput, Promise<ClaimMatchRewardsRes
     const db = admin.firestore();
     const sessionRef = db.collection('match_sessions').doc(matchId);
     const walletRef = db.collection('player_wallets').doc(uid);
+    const profileRef = db.collection('player_profiles').doc(uid);
 
     const result = await db.runTransaction(async (tx) => {
       // ── Reads (all before any writes; Firestore transaction rule) ────────
@@ -58,6 +60,7 @@ export const claimMatchRewards = onCall<ClaimInput, Promise<ClaimMatchRewardsRes
       }
 
       const walletSnap = await tx.get(walletRef);
+      const profileSnap = await tx.get(profileRef);
 
       // ── Compute reward ───────────────────────────────────────────────────
       const callerVP = callerSide === 'player_a' ? session.player_a_wins : session.player_b_wins;
@@ -67,7 +70,25 @@ export const claimMatchRewards = onCall<ClaimInput, Promise<ClaimMatchRewardsRes
       const coinsEarned = isVictory
         ? Math.floor(Math.random() * (MATCH_REWARD_COINS_MAX - MATCH_REWARD_COINS_MIN + 1)) + MATCH_REWARD_COINS_MIN
         : MATCH_REWARD_COINS_LOSS;
-      const shardsEarned = isVictory ? MATCH_REWARD_SHARDS_WIN : MATCH_REWARD_SHARDS_LOSS;
+      const baseShardsEarned = isVictory ? MATCH_REWARD_SHARDS_WIN : MATCH_REWARD_SHARDS_LOSS;
+
+      // Streak-based shard: every Nth win grants +1 shard and resets the counter.
+      const profileData = profileSnap.exists ? profileSnap.data() : undefined;
+      const priorStreak = (profileData?.wins_since_last_shard as number | undefined) ?? 0;
+
+      let newStreak = priorStreak;
+      let streakShard = 0;
+      if (isVictory) {
+        const nextStreak = priorStreak + 1;
+        if (nextStreak >= MATCH_REWARD_SHARD_STREAK_WINS) {
+          streakShard = 1;
+          newStreak = 0;
+        } else {
+          newStreak = nextStreak;
+        }
+      }
+
+      const shardsEarned = baseShardsEarned + streakShard;
 
       // ── Writes ───────────────────────────────────────────────────────────
       // Wallet should exist (created during onboarding); defensive create if missing.
@@ -89,6 +110,24 @@ export const claimMatchRewards = onCall<ClaimInput, Promise<ClaimMatchRewardsRes
         });
       }
 
+      if (isVictory) {
+        if (profileSnap.exists) {
+          tx.update(profileRef, {
+            wins_since_last_shard: newStreak,
+            updated_at: FieldValue.serverTimestamp(),
+          });
+        } else {
+          tx.set(
+            profileRef,
+            {
+              wins_since_last_shard: newStreak,
+              updated_at: FieldValue.serverTimestamp(),
+            },
+            { merge: true },
+          );
+        }
+      }
+
       tx.update(sessionRef, {
         [claimedFlag]: true,
         updated_at: FieldValue.serverTimestamp(),
@@ -99,6 +138,9 @@ export const claimMatchRewards = onCall<ClaimInput, Promise<ClaimMatchRewardsRes
         isVictory,
         coinsEarned,
         shardsEarned,
+        streakShard,
+        priorStreak,
+        newStreak,
       };
     });
 
@@ -109,6 +151,9 @@ export const claimMatchRewards = onCall<ClaimInput, Promise<ClaimMatchRewardsRes
       is_victory: result.isVictory,
       coins_earned: result.coinsEarned,
       shards_earned: result.shardsEarned,
+      streak_shard_granted: result.streakShard === 1,
+      prior_wins_since_last_shard: result.priorStreak,
+      new_wins_since_last_shard: result.newStreak,
     });
 
     return {
