@@ -201,6 +201,18 @@ These are documented as accepted-risk-for-v1 in the codebase:
 6. **AdMob is __DEV__-gated.** Production builds use real AdMob IDs; 
    dev builds use Google's test IDs. The gate is in `src/lib/admob.ts`.
 
+7. **Version bumps must be made in BOTH `app.json` AND 
+   `android/app/build.gradle`.** This project has a prebuilt local `android/` 
+   folder that ships to EAS by default (`.easignore` excludes only 
+   `android/build/`, not the source). When the native folder is present, 
+   EAS reads `versionCode` and `versionName` from `build.gradle:95-96`, 
+   NOT from `app.json` — so a bump that only touches `app.json` will be 
+   rejected by Play Console as a duplicate. iOS does NOT have this problem: 
+   there is no local `ios/` folder, so Expo prebuild generates the IPA 
+   fresh from `app.json` on EAS each build (`ios.buildNumber` is the 
+   source of truth). Bit us on Update 1.0.5 — Android build was rejected 
+   with versionCode 12 even though app.json said 13.
+
 ## Backlog (v1.1+)
 
 - **Anonymous Auth** (Apple 5.1.1 requirement — in progress, Update 1.0.2)
