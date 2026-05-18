@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.0.5 — 2026-05-18
+
+### Balance update
+
+- Adjusted match and campaign rewards for better long-term progression.
+- Win streaks now grant bonus shards, rewarding consistent play.
+- Summon prices and rare banner odds retuned for a more balanced pull experience.
+- Ad reward values rebalanced.
+- Behind-the-scenes migration ensures existing campaign progress carries over fairly.
+
+### Internal
+
+- Added test coverage for economy systems.
+
+## v1.0.4 — 2026-05-17
+
+- Added Card Library button to the home screen for quick deck reference.
+
 ## v1.0.3 — 2026-05-15
 
 ### Tutorial improvements
