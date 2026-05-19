@@ -5,8 +5,8 @@
 // Intentionally NOT shared with MiniCard from Phase 2 — that one renders the
 // static library entry; this one renders a live in-match instance.
 
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import type { CardLibraryEntry, Rarity } from '../../types/card';
 import type { LiveBoardState } from '../../types/board';
@@ -32,6 +32,67 @@ const RARITY_BORDER: Record<Rarity, string> = {
   Epic: '#a64ac9',
   Legendary: '#d4a04a',
 };
+
+// Status effect badge with self-managed entry/exit + continuous pulse.
+// Stays mounted during exit fade so the badge doesn't pop out of existence;
+// `visibleEffect` is cleared in the fade-out completion callback, which
+// returns null on the next render and the badge truly unmounts.
+function PulsingStatusBadge({ statusEffect }: { statusEffect: string | null }) {
+  const [visibleEffect, setVisibleEffect] = useState<string | null>(statusEffect);
+  const opacity = useRef(new Animated.Value(statusEffect ? 1 : 0)).current;
+  const scale = useRef(new Animated.Value(statusEffect ? 1 : 0.5)).current;
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (statusEffect) {
+      const wasHidden = visibleEffect === null;
+      setVisibleEffect(statusEffect);
+      if (wasHidden) {
+        opacity.setValue(0);
+        scale.setValue(0.5);
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 1, duration: 220, useNativeDriver: true }),
+        ]).start();
+      }
+    } else if (visibleEffect) {
+      Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }).start(
+        ({ finished }) => {
+          if (finished) setVisibleEffect(null);
+        }
+      );
+    }
+    // visibleEffect intentionally omitted: we only react to external prop changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusEffect]);
+
+  useEffect(() => {
+    if (!visibleEffect) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.6, duration: 750, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1.0, duration: 750, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [visibleEffect, pulse]);
+
+  if (!visibleEffect) return null;
+
+  return (
+    <Animated.View
+      style={[
+        styles.statusBadge,
+        { opacity: Animated.multiply(opacity, pulse), transform: [{ scale }] },
+      ]}
+    >
+      <Text style={styles.statusBadgeText} numberOfLines={1}>
+        {formatStatusEffect(visibleEffect)}
+      </Text>
+    </Animated.View>
+  );
+}
 
 export function MatchCard({
   card,
@@ -86,14 +147,8 @@ export function MatchCard({
           onError={() => setImageError(true)}
         />
       )}
-      {/* Status effect badge — top-left */}
-      {card.status_effect ? (
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusBadgeText} numberOfLines={1}>
-            {formatStatusEffect(card.status_effect)}
-          </Text>
-        </View>
-      ) : null}
+      {/* Status effect badge — top-left. Self-managed entry/exit + pulse. */}
+      <PulsingStatusBadge statusEffect={card.status_effect} />
 
       {/* Rarity dot — top-right (tokens show a "T" badge instead) */}
       {isToken ? (

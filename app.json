@@ -3,7 +3,7 @@
     "name": "ember-crown",
     "slug": "ember-crown",
     "scheme": "embercrown",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -12,7 +12,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.embercrown.app",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -55,9 +55,8 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "resizeMode": "cover",
-          "backgroundColor": "#0a0a0f",
-          "imageWidth": 1284
+          "resizeMode": "contain",
+          "backgroundColor": "#0a0a0f"
         }
       ]
     ],

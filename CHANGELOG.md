@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.6 — 2026-05-19
+
+### Polish
+
+- Splash screen now displays correctly across all devices.
+- Card status effects (buffs, debuffs, curses) now fade in with a
+  subtle pulse to draw attention.
+- Lane debuff indicators now have a gentle pulse animation while
+  active.
+
 ## v1.0.5 — 2026-05-18
 
 ### Balance update

@@ -5,8 +5,8 @@
 // The parent computes laneTotal, isDebuffed, isCommanderActive, and isTappable
 // from the live session — this component is purely presentational.
 
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MatchCard } from './MatchCard';
 import type { CardLibraryEntry } from '../../types/card';
 import type { LiveBoardState } from '../../types/board';
@@ -32,6 +32,75 @@ type Props = {
 };
 
 const FALLBACK_FACTION_COLOR = '#555';
+
+// Lane badges with self-managed entry/exit. PulsingDebuffBadge layers a
+// continuous pulse on the entrance opacity (Animated.multiply); CommanderBadge
+// is fade-only — informational, intentionally calmer than the debuff badge.
+// Both stay mounted during exit fade so they don't pop out of existence.
+function PulsingDebuffBadge({ visible }: { visible: boolean }) {
+  const [shouldRender, setShouldRender] = useState(visible);
+  const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setShouldRender(true);
+      opacity.setValue(0);
+      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    } else if (shouldRender) {
+      Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }).start(
+        ({ finished }) => {
+          if (finished) setShouldRender(false);
+        }
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  useEffect(() => {
+    if (!shouldRender) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.6, duration: 750, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1.0, duration: 750, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [shouldRender, pulse]);
+
+  if (!shouldRender) return null;
+
+  return (
+    <Animated.Text style={[styles.badge, { opacity: Animated.multiply(opacity, pulse) }]}>
+      ❄
+    </Animated.Text>
+  );
+}
+
+function CommanderBadge({ visible }: { visible: boolean }) {
+  const [shouldRender, setShouldRender] = useState(visible);
+  const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setShouldRender(true);
+      opacity.setValue(0);
+      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    } else if (shouldRender) {
+      Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }).start(
+        ({ finished }) => {
+          if (finished) setShouldRender(false);
+        }
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  if (!shouldRender) return null;
+
+  return <Animated.Text style={[styles.badge, { opacity }]}>🛡</Animated.Text>;
+}
 
 export function LaneRow({
   lane,
@@ -69,8 +138,8 @@ export function LaneRow({
         <Text style={styles.laneLabel}>{lane.toUpperCase()}</Text>
         <Text style={[styles.laneTotal, { color: totalColor }]}>{laneTotal}</Text>
         <View style={styles.badges}>
-          {isCommanderActive ? <Text style={styles.badge}>🛡</Text> : null}
-          {isDebuffed ? <Text style={styles.badge}>❄</Text> : null}
+          <CommanderBadge visible={isCommanderActive} />
+          <PulsingDebuffBadge visible={isDebuffed} />
         </View>
       </View>
       <ScrollView
