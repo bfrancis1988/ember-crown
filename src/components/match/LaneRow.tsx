@@ -7,6 +7,12 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Reanimated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { MatchCard } from './MatchCard';
 import type { CardLibraryEntry } from '../../types/card';
 import type { LiveBoardState } from '../../types/board';
@@ -37,6 +43,10 @@ const FALLBACK_FACTION_COLOR = '#555';
 // continuous pulse on the entrance opacity (Animated.multiply); CommanderBadge
 // is fade-only — informational, intentionally calmer than the debuff badge.
 // Both stay mounted during exit fade so they don't pop out of existence.
+//
+// CommanderBadge was ported to react-native-reanimated (useSharedValue +
+// withTiming) as the Release 1.1.0 Phase A smoke test. PulsingDebuffBadge
+// still uses the RN Animated API — behaviour of both is identical.
 function PulsingDebuffBadge({ visible }: { visible: boolean }) {
   const [shouldRender, setShouldRender] = useState(visible);
   const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
@@ -80,26 +90,26 @@ function PulsingDebuffBadge({ visible }: { visible: boolean }) {
 
 function CommanderBadge({ visible }: { visible: boolean }) {
   const [shouldRender, setShouldRender] = useState(visible);
-  const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
+  const opacity = useSharedValue(visible ? 1 : 0);
 
   useEffect(() => {
     if (visible) {
       setShouldRender(true);
-      opacity.setValue(0);
-      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+      opacity.value = 0;
+      opacity.value = withTiming(1, { duration: 200 });
     } else if (shouldRender) {
-      Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }).start(
-        ({ finished }) => {
-          if (finished) setShouldRender(false);
-        }
-      );
+      opacity.value = withTiming(0, { duration: 150 }, (finished) => {
+        if (finished) runOnJS(setShouldRender)(false);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
   if (!shouldRender) return null;
 
-  return <Animated.Text style={[styles.badge, { opacity }]}>🛡</Animated.Text>;
+  return <Reanimated.Text style={[styles.badge, animatedStyle]}>🛡</Reanimated.Text>;
 }
 
 export function LaneRow({
