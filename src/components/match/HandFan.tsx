@@ -6,6 +6,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MatchCard } from './MatchCard';
+import { useMatchOverlay } from './overlay/MatchOverlay';
 import type { CardLibraryEntry } from '../../types/card';
 import type { LiveBoardState } from '../../types/board';
 
@@ -19,6 +20,9 @@ type Props = {
   // Update 1: long-press a hand card to preview it. Independent of turn
   // state (preview is read-only) so it works while waiting on the opponent.
   onLongPressCard?: (instanceId: string) => void;
+  // Release 1.1.0: cards mid-flight to a lane. Their hand slot is skipped so
+  // only the overlay ghost is visible during the hand-to-lane animation.
+  suppressedIds: ReadonlySet<string>;
 };
 
 const FALLBACK_FACTION_COLOR = '#555';
@@ -34,7 +38,10 @@ export function HandFan({
   onSelectCard,
   isPlayerTurn,
   onLongPressCard,
+  suppressedIds,
 }: Props) {
+  const { registerNode } = useMatchOverlay();
+
   if (cards.length === 0) {
     return (
       <View style={styles.empty}>
@@ -53,11 +60,14 @@ export function HandFan({
         {cards.map((c, i) => {
           const entry = cardLibraryMap.get(c.card_id);
           if (!entry) return null;
+          // Mid-flight: the overlay ghost stands in for this card.
+          if (suppressedIds.has(c.instance_id)) return null;
           const color = factionColorMap.get(entry.faction) ?? FALLBACK_FACTION_COLOR;
           const isSelected = selectedInstanceId === c.instance_id;
           return (
             <View
               key={c.instance_id}
+              ref={(node) => registerNode(`card:${c.instance_id}`, node)}
               style={[
                 styles.cardSlot,
                 {

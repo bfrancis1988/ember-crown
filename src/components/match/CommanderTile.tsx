@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
+import { useMatchOverlay } from './overlay/MatchOverlay';
 import type { CommanderEntry } from '../../types/commander';
 import type { Side } from '../../types/match';
 import type { Lane } from '../../lib/matchConstants';
@@ -39,6 +40,11 @@ export function CommanderTile({
 }: Props) {
   const isMe = thisSide === viewerSide;
   const canActivate = isMe && !usedFlag && onActivate !== undefined;
+
+  // Release 1.1.0: register this tile so the opponent's hand-to-lane ghost
+  // has an approximate source position to fly from.
+  const { registerNode } = useMatchOverlay();
+  const tileKey = `commander:${thisSide}`;
 
   const [imageError, setImageError] = useState(false);
   const showImage =
@@ -89,6 +95,7 @@ export function CommanderTile({
   if (canActivate) {
     return (
       <Pressable
+        ref={(node) => registerNode(tileKey, node)}
         onPress={onActivate}
         style={({ pressed }) => [...containerStyle, pressed && styles.tilePressed]}
       >
@@ -96,7 +103,11 @@ export function CommanderTile({
       </Pressable>
     );
   }
-  return <View style={containerStyle}>{Inner}</View>;
+  return (
+    <View ref={(node) => registerNode(tileKey, node)} style={containerStyle}>
+      {Inner}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

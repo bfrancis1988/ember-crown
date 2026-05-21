@@ -7,6 +7,12 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import Reanimated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { Image as ExpoImage } from 'expo-image';
 import type { CardLibraryEntry, Rarity } from '../../types/card';
 import type { LiveBoardState } from '../../types/board';
@@ -23,6 +29,10 @@ type Props = {
   // lane cards keep bubbling short-taps to the parent lane's onTapLane.
   // In practice that means: hand cards support preview, lane cards don't.
   onLongPress?: () => void;
+  // Release 1.1.0: monotonically increasing seq from useBoardObserver's
+  // powerDeltas — bumps when this card's power changes, triggering the scale
+  // pulse. MatchCard does no power diffing of its own.
+  powerChangeSeq?: number;
 };
 
 const RARITY_BORDER: Record<Rarity, string> = {
@@ -102,6 +112,7 @@ export function MatchCard({
   isFaceDown = false,
   onPress,
   onLongPress,
+  powerChangeSeq,
 }: Props) {
   const borderColor = RARITY_BORDER[cardLibraryEntry.rarity] ?? RARITY_BORDER.Common;
   const [imageError, setImageError] = useState(false);
@@ -111,6 +122,34 @@ export function MatchCard({
     cardLibraryEntry.image_url.length > 0 &&
     !imageError;
 
+  // Power coloring: green if buffed above base, red if debuffed below base,
+  // cream if equal. Computed before the isFaceDown guard so the animation
+  // hooks below stay unconditional.
+  const base = cardLibraryEntry.base_power;
+  const cur = card.current_power;
+  const powerColor = cur > base ? '#5cd35c' : cur < base ? '#e05a5a' : '#f5e7c2';
+
+  // Item 3: the power number crossfades toward its current color (350ms) and
+  // gives a brief scale pulse (~250ms) whenever the value changes. The pulse
+  // is driven by the central observer's powerDeltas seq — MatchCard never
+  // diffs power itself; the crossfade just eases toward the current color.
+  const powerColorSV = useSharedValue(powerColor);
+  const powerScaleSV = useSharedValue(1);
+  useEffect(() => {
+    powerColorSV.value = withTiming(powerColor, { duration: 350 });
+  }, [powerColor, powerColorSV]);
+  useEffect(() => {
+    if (powerChangeSeq === undefined) return;
+    powerScaleSV.value = withSequence(
+      withTiming(1.15, { duration: 120 }),
+      withTiming(1, { duration: 130 }),
+    );
+  }, [powerChangeSeq, powerScaleSV]);
+  const powerAnimStyle = useAnimatedStyle(() => ({
+    color: powerColorSV.value,
+    transform: [{ scale: powerScaleSV.value }],
+  }));
+
   if (isFaceDown) {
     return (
       <View style={[styles.card, styles.cardBack, { borderColor: '#333' }]}>
@@ -119,11 +158,6 @@ export function MatchCard({
       </View>
     );
   }
-
-  // Power coloring: green if buffed above base, red if debuffed below, default otherwise.
-  const base = cardLibraryEntry.base_power;
-  const cur = card.current_power;
-  const powerColor = cur > base ? '#5cd35c' : cur < base ? '#e05a5a' : '#f5e7c2';
 
   // Phase 9.4.2B — tokens get a dimmer border + a "T" badge so they read
   // as ephemeral compared to real cards.
@@ -172,7 +206,9 @@ export function MatchCard({
           </Text>
           <View style={styles.powerPair}>
             {base !== cur && <Text style={styles.basePower}>{base}</Text>}
-            <Text style={[styles.power, { color: powerColor }]}>{cur}</Text>
+            <Reanimated.Text style={[styles.power, powerAnimStyle]}>
+              {cur}
+            </Reanimated.Text>
           </View>
         </View>
       </View>

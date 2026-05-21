@@ -14,6 +14,7 @@ import Reanimated, {
   withTiming,
 } from 'react-native-reanimated';
 import { MatchCard } from './MatchCard';
+import { useMatchOverlay } from './overlay/MatchOverlay';
 import type { CardLibraryEntry } from '../../types/card';
 import type { LiveBoardState } from '../../types/board';
 import type { Side } from '../../types/match';
@@ -34,6 +35,12 @@ type Props = {
   // optimal_lane on the viewer's side. Adds an additive green glow so
   // the tappable gold border still reads when both are true.
   isOptimalForSelected: boolean;
+  // Release 1.1.0: lane cards mid-flight from a hand-to-lane animation. Their
+  // slot is skipped until the overlay ghost lands.
+  suppressedIds: ReadonlySet<string>;
+  // Release 1.1.0: per-instance powerDeltas seq, forwarded to each MatchCard
+  // to trigger its power-change scale pulse.
+  powerSeq: ReadonlyMap<string, number>;
   onTapLane: () => void;
 };
 
@@ -124,8 +131,13 @@ export function LaneRow({
   isCommanderActive,
   isTappable,
   isOptimalForSelected,
+  suppressedIds,
+  powerSeq,
   onTapLane,
 }: Props) {
+  const { registerNode } = useMatchOverlay();
+  // Registry key for the hand-to-lane ghost target — the lane's row container.
+  const laneKey = `lane:${owner}:${lane}`;
   const isOpponent = owner !== viewerSide;
   const totalColor = isCommanderActive
     ? '#5cd35c'
@@ -163,10 +175,21 @@ export function LaneRow({
           cards.map((c) => {
             const entry = cardLibraryMap.get(c.card_id);
             if (!entry) return null;
+            // Mid-flight: the overlay ghost stands in until it lands.
+            if (suppressedIds.has(c.instance_id)) return null;
             const color = factionColorMap.get(entry.faction) ?? FALLBACK_FACTION_COLOR;
             return (
-              <View key={c.instance_id} style={styles.cardWrap}>
-                <MatchCard card={c} cardLibraryEntry={entry} factionColor={color} />
+              <View
+                key={c.instance_id}
+                ref={(node) => registerNode(`card:${c.instance_id}`, node)}
+                style={styles.cardWrap}
+              >
+                <MatchCard
+                  card={c}
+                  cardLibraryEntry={entry}
+                  factionColor={color}
+                  powerChangeSeq={powerSeq.get(c.instance_id)}
+                />
               </View>
             );
           })
@@ -178,6 +201,7 @@ export function LaneRow({
   if (isTappable) {
     return (
       <Pressable
+        ref={(node) => registerNode(laneKey, node)}
         onPress={onTapLane}
         style={({ pressed }) => [...containerStyle, pressed && styles.rowPressed]}
       >
@@ -185,7 +209,11 @@ export function LaneRow({
       </Pressable>
     );
   }
-  return <View style={containerStyle}>{Inner}</View>;
+  return (
+    <View ref={(node) => registerNode(laneKey, node)} style={containerStyle}>
+      {Inner}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

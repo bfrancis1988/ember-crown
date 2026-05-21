@@ -4,7 +4,7 @@
 // D5/D6/D7 callables (playCardToLane, passTurn, activateCommander,
 // claimMatchRewards). All errors surface as Alerts or inline banners.
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,12 +25,21 @@ import { FACTIONS } from '../../../src/lib/factions';
 import { type Lane } from '../../../src/lib/matchConstants';
 import { useMatchSession } from '../../../src/hooks/useMatchSession';
 import { useMatchBoardState } from '../../../src/hooks/useMatchBoardState';
+import {
+  useBoardObserver,
+  type PlayTransitionEvent,
+} from '../../../src/hooks/useBoardObserver';
 import { LaneRow } from '../../../src/components/match/LaneRow';
 import { CommanderTile } from '../../../src/components/match/CommanderTile';
 import { HandFan } from '../../../src/components/match/HandFan';
 import { MatchCompleteOverlay } from '../../../src/components/match/MatchCompleteOverlay';
 import { SacrificeTargetSelector } from '../../../src/components/match/SacrificeTargetSelector';
 import { MatchCardPreviewModal } from '../../../src/components/match/MatchCardPreviewModal';
+import {
+  MatchOverlayProvider,
+  useMatchOverlay,
+  type OverlayRect,
+} from '../../../src/components/match/overlay/MatchOverlay';
 import {
   TutorialTooltipProvider,
   useTutorialTooltips,
@@ -65,6 +74,39 @@ function buildFactionColorMap(): Map<string, string> {
   const m = new Map<string, string>();
   for (const f of FACTIONS) m.set(f.id, f.color);
   return m;
+}
+
+// Release 1.1.0 — hand-to-lane flight geometry + state.
+// If a flight's two signals never both arrive, this timeout aborts it so a
+// card can't stay suppressed (invisible) indefinitely.
+const FLIGHT_TIMEOUT_MS = 5000;
+
+// Lane cards render at width 56 (LaneRow cardWrap) with a 6px gap; the lane
+// row's label column (64) + horizontal padding (8) precede the card area.
+const GHOST_LANE_CARD_W = 56;
+const GHOST_LANE_CARD_GAP = 6;
+const LANE_CARD_AREA_OFFSET_X = 72;
+
+type Flight = {
+  kind: 'own' | 'opponent';
+  animDone: boolean;
+  confirmed: boolean;
+  timeoutId: ReturnType<typeof setTimeout> | null;
+};
+
+// Approximates where a newly played card will sit so the ghost lands roughly
+// aligned with the real card the moment it appears.
+function computeLaneTarget(rowRect: OverlayRect, cardIndex: number): OverlayRect {
+  const height = (GHOST_LANE_CARD_W * 7) / 5;
+  const slot =
+    LANE_CARD_AREA_OFFSET_X + cardIndex * (GHOST_LANE_CARD_W + GHOST_LANE_CARD_GAP);
+  const maxX = Math.max(LANE_CARD_AREA_OFFSET_X, rowRect.width - GHOST_LANE_CARD_W - 8);
+  return {
+    x: rowRect.x + Math.min(slot, maxX),
+    y: rowRect.y + Math.max(0, (rowRect.height - height) / 2),
+    width: GHOST_LANE_CARD_W,
+    height,
+  };
 }
 
 function laneTotal(
@@ -349,6 +391,175 @@ function MatchScreenInner() {
     if (entry?.card_type === 'Spell') showTooltip('spell_select');
   }, [isTutorial, selectedInstanceId, cards, cardLibraryMap, showTooltip]);
 
+  // ---- Phase B: hand-to-lane flight tracking ----
+  // useBoardObserver supplies hand->lane transitions; the overlay hosts the
+  // flying ghost cards. Each flight carries two flags — animDone (the ghost
+  // flight finished) and confirmed (Firestore shows the card in the lane) —
+  // and is finalized only once both are true. clearFlight doubles as the
+  // failure/timeout abort path so a card can never stay suppressed forever.
+  const overlay = useMatchOverlay();
+  const observation = useBoardObserver(cards);
+
+  // View-side derivation. Null-safe so the flight hooks below can use it
+  // before the guards confirm the session has loaded.
+  const viewerSide: Side =
+    session && user && user.uid === session.player_b_id ? 'player_b' : 'player_a';
+  const opponentSide: Side = viewerSide === 'player_a' ? 'player_b' : 'player_a';
+
+  const flightsRef = useRef<Map<string, Flight>>(new Map());
+  // Opponent instance_ids no longer suppressed via the transition union —
+  // populated when a flight ends (or never starts). Read during render.
+  const releasedRef = useRef<Set<string>>(new Set());
+  // Transitions already handed to the flight effect (idempotency guard).
+  const handledTransitionRef = useRef<Set<string>>(new Set());
+  // Power-delta events already turned into floating numbers (idempotency).
+  const handledDeltaRef = useRef<Set<number>>(new Set());
+  // Latest powerDeltas seq per instance — fed to MatchCard so its power
+  // number can pulse. Persists across snapshots; folded during render below.
+  const powerSeqRef = useRef<Map<string, number>>(new Map());
+  const [, setFlightTick] = useState(0);
+  const rerenderFlights = () => setFlightTick((t) => t + 1);
+
+  // Finalize or abort a flight: clears the timeout, drops the ghost, and
+  // releases the card so HandFan/LaneRow render it normally again.
+  function clearFlight(instanceId: string) {
+    const f = flightsRef.current.get(instanceId);
+    if (!f) return;
+    if (f.timeoutId) clearTimeout(f.timeoutId);
+    flightsRef.current.delete(instanceId);
+    releasedRef.current.add(instanceId);
+    overlay.removeGhost(instanceId);
+    rerenderFlights();
+  }
+
+  function markAnimDone(instanceId: string) {
+    const f = flightsRef.current.get(instanceId);
+    if (!f) return;
+    f.animDone = true;
+    if (f.confirmed) clearFlight(instanceId);
+  }
+
+  function markConfirmed(instanceId: string) {
+    const f = flightsRef.current.get(instanceId);
+    if (!f) return;
+    f.confirmed = true;
+    if (f.animDone) clearFlight(instanceId);
+  }
+
+  function releaseTransition(instanceId: string) {
+    releasedRef.current.add(instanceId);
+    rerenderFlights();
+  }
+
+  // Own play: measure the hand card + target lane, spawn a ghost, open a
+  // flight. Best-effort — silently no-ops for spells or missing measurements,
+  // leaving the play to render without animation.
+  async function beginOwnFlight(instanceId: string, lane: Lane) {
+    if (flightsRef.current.has(instanceId)) return;
+    const card = cards.find((c) => c.instance_id === instanceId);
+    const entry = card ? cardLibraryMap.get(card.card_id) : undefined;
+    if (!card || !entry || entry.card_type !== 'Unit') return;
+    const from = await overlay.measureNode(`card:${instanceId}`);
+    const rowRect = await overlay.measureNode(`lane:${viewerSide}:${lane}`);
+    if (!from || !rowRect || flightsRef.current.has(instanceId)) return;
+    const laneCount = cards.filter(
+      (c) => c.owner === viewerSide && c.location_state === lane.toLowerCase(),
+    ).length;
+    const to = computeLaneTarget(rowRect, laneCount);
+    const factionColor = factionColorMap.get(entry.faction) ?? FALLBACK_FACTION_COLOR;
+    const timeoutId = setTimeout(() => clearFlight(instanceId), FLIGHT_TIMEOUT_MS);
+    flightsRef.current.set(instanceId, {
+      kind: 'own',
+      animDone: false,
+      confirmed: false,
+      timeoutId,
+    });
+    rerenderFlights();
+    overlay.flyCard({
+      instanceId,
+      card,
+      entry,
+      factionColor,
+      from,
+      to,
+      onAnimComplete: () => markAnimDone(instanceId),
+    });
+  }
+
+  // Opponent play: detected from a hand->lane transition, so already
+  // Firestore-confirmed. The ghost flies in from the opponent's commander tile.
+  async function startOpponentFlight(t: PlayTransitionEvent) {
+    if (flightsRef.current.has(t.instanceId) || releasedRef.current.has(t.instanceId)) {
+      return;
+    }
+    const card = cards.find((c) => c.instance_id === t.instanceId);
+    const entry = card ? cardLibraryMap.get(card.card_id) : undefined;
+    if (!card || !entry) {
+      releaseTransition(t.instanceId);
+      return;
+    }
+    const from = await overlay.measureNode(`commander:${t.owner}`);
+    const rowRect = await overlay.measureNode(`lane:${t.owner}:${t.lane}`);
+    if (!from || !rowRect) {
+      releaseTransition(t.instanceId);
+      return;
+    }
+    if (flightsRef.current.has(t.instanceId)) return;
+    // The snapshot already includes the new card; it lands in the last slot.
+    const laneCount = cards.filter(
+      (c) => c.owner === t.owner && c.location_state === t.lane.toLowerCase(),
+    ).length;
+    const to = computeLaneTarget(rowRect, Math.max(0, laneCount - 1));
+    const factionColor = factionColorMap.get(entry.faction) ?? FALLBACK_FACTION_COLOR;
+    const timeoutId = setTimeout(() => clearFlight(t.instanceId), FLIGHT_TIMEOUT_MS);
+    flightsRef.current.set(t.instanceId, {
+      kind: 'opponent',
+      animDone: false,
+      confirmed: true,
+      timeoutId,
+    });
+    rerenderFlights();
+    overlay.flyCard({
+      instanceId: t.instanceId,
+      card,
+      entry,
+      factionColor,
+      from,
+      to,
+      onAnimComplete: () => markAnimDone(t.instanceId),
+    });
+  }
+
+  // Drain each board snapshot's hand->lane transitions exactly once: opponent
+  // plays start a ghost; own plays mark their in-flight ghost confirmed.
+  useEffect(() => {
+    for (const t of observation.playTransitions) {
+      if (handledTransitionRef.current.has(t.instanceId)) continue;
+      handledTransitionRef.current.add(t.instanceId);
+      if (t.owner === viewerSide) {
+        markConfirmed(t.instanceId);
+      } else {
+        void startOpponentFlight(t);
+      }
+    }
+    // `observation` identity changes once per board snapshot; viewerSide and
+    // the card maps are read fresh from that snapshot's render closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [observation]);
+
+  // ---- Phase B: damage/heal floating numbers ----
+  // Every lane-card power change from useBoardObserver becomes one floating
+  // number. The overlay resolves the card's screen position and fans out
+  // rapid multi-hits (combat resolution, chained burns) via a stacking offset.
+  useEffect(() => {
+    for (const d of observation.powerDeltas) {
+      if (handledDeltaRef.current.has(d.seq)) continue;
+      handledDeltaRef.current.add(d.seq);
+      void overlay.spawnDamageNumber({ instanceId: d.instanceId, delta: d.delta });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [observation]);
+
   // ---- guards ----
 
   if (sessionLoading || (session && cardsLoading)) {
@@ -389,10 +600,7 @@ function MatchScreenInner() {
   }
 
   // ---- view-side derivation ----
-
-  const viewerSide: Side =
-    user && user.uid === session.player_b_id ? 'player_b' : 'player_a';
-  const opponentSide: Side = viewerSide === 'player_a' ? 'player_b' : 'player_a';
+  // viewerSide / opponentSide are derived earlier — the flight hooks need them.
 
   const isPlayerTurn =
     session.status === 'in_progress' && session.active_turn === viewerSide;
@@ -482,6 +690,9 @@ function MatchScreenInner() {
     sacrificeTargetInstanceId: string | null = null,
   ) {
     if (!matchId) return;
+    // Kick off the hand-to-lane ghost in parallel with the callable. The
+    // callable is the source of truth; the animation is purely additive.
+    void beginOwnFlight(instanceId, lane);
     setActionLoading(true);
     setActionError(null);
     try {
@@ -495,6 +706,8 @@ function MatchScreenInner() {
       setSelectedInstanceId(null);
       setPendingRitual(null);
     } catch (err: any) {
+      // Play rejected — abort the ghost; the card stays in hand.
+      clearFlight(instanceId);
       const msg = err?.message ?? 'Failed to play card.';
       setActionError(msg);
       Alert.alert('Play failed', msg);
@@ -620,6 +833,23 @@ function MatchScreenInner() {
     setSelectedInstanceId((prev) => (prev === instanceId ? null : instanceId));
   }
 
+  // Cards represented by a flying ghost — HandFan/LaneRow skip their own
+  // render of these so only the ghost shows. Opponent transitions are folded
+  // in here, during render, so the real card never flickers in for a frame
+  // before its ghost takes over.
+  const suppressedIds = new Set<string>(flightsRef.current.keys());
+  for (const t of observation.playTransitions) {
+    if (t.owner === opponentSide && !releasedRef.current.has(t.instanceId)) {
+      suppressedIds.add(t.instanceId);
+    }
+  }
+
+  // Fold this snapshot's power deltas into the persistent per-instance seq
+  // map (idempotent — the same observation always yields the same seqs).
+  for (const d of observation.powerDeltas) {
+    powerSeqRef.current.set(d.instanceId, d.seq);
+  }
+
   // ---- render ----
 
   const showOverlay = session.status === 'game_over';
@@ -685,6 +915,8 @@ function MatchScreenInner() {
             isCommanderActive={oppCommanderActiveLane === lane}
             isTappable={laneTappableFor(opponentSide)}
             isOptimalForSelected={laneIsOptimalForSelected(lane, opponentSide)}
+            suppressedIds={suppressedIds}
+            powerSeq={powerSeqRef.current}
             onTapLane={() => {
               if (selectedInstanceId) handleLaneTap(selectedInstanceId, lane);
             }}
@@ -713,6 +945,8 @@ function MatchScreenInner() {
             isCommanderActive={myCommanderActiveLane === lane}
             isTappable={laneTappableFor(viewerSide)}
             isOptimalForSelected={laneIsOptimalForSelected(lane, viewerSide)}
+            suppressedIds={suppressedIds}
+            powerSeq={powerSeqRef.current}
             onTapLane={() => {
               if (selectedInstanceId) handleLaneTap(selectedInstanceId, lane);
             }}
@@ -753,6 +987,7 @@ function MatchScreenInner() {
           onSelectCard={handleSelectHandCard}
           isPlayerTurn={isPlayerTurn && !myPassed && !actionLoading}
           onLongPressCard={setPreviewInstanceId}
+          suppressedIds={suppressedIds}
         />
       </ScrollView>
 
@@ -824,10 +1059,15 @@ export default function MatchScreen() {
   // Provider always wraps; tooltip useEffects inside MatchScreenInner gate on
   // session.mode === 'tutorial', so solo matches see no tooltips. The overlay
   // returns null when no trigger is active.
+  //
+  // MatchOverlayProvider hosts the Phase B animation layer (flying ghost cards,
+  // floating damage numbers) as a touch-transparent screen-root sibling.
   return (
     <TutorialTooltipProvider>
-      <MatchScreenInner />
-      <TutorialTooltipOverlay />
+      <MatchOverlayProvider>
+        <MatchScreenInner />
+        <TutorialTooltipOverlay />
+      </MatchOverlayProvider>
     </TutorialTooltipProvider>
   );
 }
