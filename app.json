@@ -3,7 +3,7 @@
     "name": "ember-crown",
     "slug": "ember-crown",
     "scheme": "embercrown",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -12,7 +12,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.embercrown.app",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "10",
+      "buildNumber": "11",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -22,7 +22,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.embercrown.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 13,
+      "versionCode": 15,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon-foreground.png",
         "backgroundColor": "#1a1a2e"

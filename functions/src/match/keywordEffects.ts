@@ -115,7 +115,13 @@ export async function applyCleaveOnPlay(
         current_power: 0,
       });
     } else {
-      ctx.batch.update(ref, { current_power: newPower });
+      // Update 1.0.7 — write current_power for an immediate value AND
+      // accumulate damage_taken, which computeCardPower subtracts. Without
+      // damage_taken the post-play recalc reverts current_power to base.
+      ctx.batch.update(ref, {
+        current_power: newPower,
+        damage_taken: FieldValue.increment(damage),
+      });
     }
 
     targets_hit.push(target.instance_id);
@@ -446,12 +452,16 @@ export type RitualContext = {
  * For `optional_single`:
  *   - If sacrificeTargetInstanceId is null/undefined, no-op (player skipped).
  *   - Otherwise sacrifice that one allied unit (must be in a lane, allied,
- *     not the played card itself); add its `base_power + base_power_bonus`
- *     to the played card's current_power.
+ *     not the played card itself); add its current_power to the played card's
+ *     base_power_bonus.
  *
  * For `all_in_lane`:
  *   - Sacrifice all OTHER allied units in the played card's lane.
- *   - Add (count × power_per_sacrifice) to the played card's current_power.
+ *   - Add (count × power_per_sacrifice) to the played card's base_power_bonus.
+ *
+ * Update 1.0.7 — the power gain is written to base_power_bonus (the field
+ * computeCardPower reads), NOT current_power. A raw current_power write is
+ * reverted by the recalc that fires immediately after every play.
  *
  * Returns metadata for logging. Throws HttpsError on validation failure.
  */
@@ -490,7 +500,7 @@ export async function applyRitualOnPlay(
     const power_gain = sacrificed.length * lanePerSac;
     if (power_gain > 0) {
       ctx.batch.update(playedRef, {
-        current_power: lib.base_power + power_gain,
+        base_power_bonus: FieldValue.increment(power_gain),
       });
     }
 
@@ -567,7 +577,7 @@ export async function applyRitualOnPlay(
     current_power: 0,
   });
   ctx.batch.update(playedRef, {
-    current_power: lib.base_power + power_gain,
+    base_power_bonus: FieldValue.increment(power_gain),
   });
 
   logger.info('Ritual (optional_single) applied', {

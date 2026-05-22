@@ -41,6 +41,7 @@ export async function recalculateMatchPower(
       location_state: data.location_state,
       current_power: data.current_power,
       base_power_bonus: data.base_power_bonus,
+      damage_taken: data.damage_taken,
     };
   });
 

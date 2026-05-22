@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.7 — 2026-05-21
+
+### Bug fixes
+
+- Cleave now properly damages enemy units (previously, non-lethal
+  Cleave damage was being reverted).
+- Ritual now properly grants the played card a power bonus from
+  sacrificed allies (previously, the bonus was being lost).
+- Removed unused visual code from card rendering.
+
 ## v1.0.6 — 2026-05-19
 
 ### Polish

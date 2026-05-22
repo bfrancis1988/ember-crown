@@ -279,6 +279,8 @@ export function buildBoardStateDocs(args: {
         location_state,
         status_effect: null,
         created_at: now as Timestamp,
+        // Update 1.0.7 — Cleave damage accumulator; starts clean.
+        damage_taken: 0,
       };
     });
   };

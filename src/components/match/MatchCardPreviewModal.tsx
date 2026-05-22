@@ -168,15 +168,6 @@ export function MatchCardPreviewModal({
                   </Text>
                 )}
 
-              {liveBoardState?.status_effect ? (
-                <View style={styles.row}>
-                  <Text style={styles.sectionLabel}>Status</Text>
-                  <Text style={[styles.rowValue, styles.statusValue]}>
-                    {liveBoardState.status_effect}
-                  </Text>
-                </View>
-              ) : null}
-
               {keywords.length > 0 && (
                 <View style={styles.keywordBlock}>
                   <Text style={styles.sectionLabel}>Keywords</Text>
@@ -331,9 +322,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
-  },
-  statusValue: {
-    color: '#e0a0c8',
   },
   sectionLabel: {
     color: '#888',
