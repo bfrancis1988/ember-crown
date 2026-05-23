@@ -3,7 +3,7 @@
 // in the player's faction eligibility and the assignment renders
 // AssignedQuest objects ready to write.
 
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
 import type {
   AssignedQuest,
   QuestDefinition,
@@ -79,7 +79,10 @@ function resolveAssignment(def: QuestDefinition, ctx: EligibilityContext): Assig
     target,
     progress: 0,
     claimed: false,
-    assigned_at: FieldValue.serverTimestamp() as unknown as Timestamp,
+    // Timestamp.now() (not serverTimestamp) — Firestore rejects
+    // serverTimestamp sentinels inside array elements, and AssignedQuest
+    // is written as an element of progress.daily_quests / weekly_quests.
+    assigned_at: Timestamp.now(),
     title,
     reward: { ...def.reward },
   };

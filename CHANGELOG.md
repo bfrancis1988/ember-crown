@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.1 — 2026-05-23
+
+### Bug fixes
+
+- Match reward claiming now succeeds correctly. (Previously, claims
+  after the 1.1.0 update could fail with an "internal error" message
+  due to a Firestore quirk in the quest tracking code.)
+
 ## v1.1.0 — 2026-05-23
 
 ### New features
