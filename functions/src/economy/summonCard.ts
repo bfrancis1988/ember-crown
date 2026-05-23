@@ -9,6 +9,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { BANNERS, MAX_COPIES_PER_CARD, DUPLICATE_DUST_VALUES } from '../lib/banners';
 import type { BannerId, Rarity } from '../lib/banners';
 import { recomputeSoloUnlocks } from '../lib/factionUnlockHelpers';
+import { settleInTx } from '../quests/questSettlement';
 
 type SummonInput = { bannerId: BannerId };
 
@@ -146,6 +147,15 @@ export const summonCard = onCall<SummonInput, Promise<SummonResult>>(
         uid,
         profile,
         postMutationInventory,
+      );
+
+      // Release 1.1.0 — Quest counter for summons. Must run BEFORE the
+      // writes below (settleInTx does its own reads).
+      await settleInTx(
+        tx,
+        uid,
+        { counterIncrements: { summons: 1 } },
+        db,
       );
 
       tx.update(walletRef, walletUpdates);

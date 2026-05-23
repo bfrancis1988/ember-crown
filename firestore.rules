@@ -181,6 +181,26 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // === QUEST PROGRESS (Release 1.1.0) ===
+    // One doc per player. Active daily + weekly quest assignments,
+    // counters, streak-day map. Created and updated only by Cloud
+    // Functions (assignQuests, claimQuest, settleInTx via claim hooks).
+    match /quest_progress/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // === PLAYER STATS (Release 1.1.0) ===
+    // Lifetime match counters (total/wins/per-mode). Created and
+    // incremented by Cloud Functions in claimMatchRewards and
+    // recordCampaignWin. Replaces the prior approach of deriving
+    // counts from a one-shot match_sessions query, which lost data
+    // once cleanupStaleMatches deleted claimed matches.
+    match /player_stats/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
     // === MATCH SESSIONS ===
     match /match_sessions/{matchId} {
       // Read: only participants.

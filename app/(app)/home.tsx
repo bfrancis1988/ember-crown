@@ -30,6 +30,7 @@ import { completeOnboarding } from '../../src/lib/completeOnboarding';
 import { FACTIONS } from '../../src/lib/factions';
 import type { FactionId } from '../../src/lib/factions';
 import type { CommanderEntry } from '../../src/types/commander';
+import { QuestPreviewLine } from '../../src/components/quests/QuestPreviewLine';
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
@@ -285,11 +286,10 @@ function LandingView({ username, onSignOut, isSigningOut }: LandingViewProps) {
           </View>
         </Pressable>
 
-        {/* Daily Check-In placeholder */}
-        <View style={styles.dailyCard}>
-          <Text style={styles.dailyHeader}>Daily Check-In</Text>
-          <Text style={styles.dailySub}>Coming Soon</Text>
-        </View>
+        {/* Release 1.1.0 — quest preview line, replaces the Daily Check-In
+            placeholder. Live subscribes to quest_progress and surfaces
+            either the most-progressed daily or a "ready to claim" alert. */}
+        <QuestPreviewLine />
 
         {/* Quick Actions */}
         <Text style={styles.sectionLabel}>Quick Actions</Text>
@@ -553,29 +553,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 8,
-  },
-  dailyCard: {
-    backgroundColor: 'rgba(20, 20, 26, 0.55)',
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f1f24',
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    marginBottom: 18,
-    alignItems: 'center',
-  },
-  dailyHeader: {
-    color: '#999',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  dailySub: {
-    color: '#666',
-    fontSize: 12,
-    marginTop: 4,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
   },
   sectionLabel: {
     color: '#888',

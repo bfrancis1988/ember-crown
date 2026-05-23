@@ -143,10 +143,38 @@ export async function playCardHelper(
   }
 
   const newTurn = nextActiveTurn(callerSide, session, opponentPassedFlag, false);
-  batch.update(sessionRef, {
+  const turnUpdate: Record<string, unknown> = {
     active_turn: newTurn,
     updated_at: FieldValue.serverTimestamp(),
-  });
+  };
+
+  // Release 1.1.0 — accumulate quest-tracking counters for the human side
+  // only (AI calls this helper with callerSide='player_b'). Skip tutorial
+  // matches — they shouldn't count toward quest progress.
+  if (callerSide === 'player_a' && session.mode !== 'tutorial') {
+    const isUnit = libData.card_type === 'Unit';
+    const isSpell = libData.card_type === 'Spell';
+    const isHighRarity =
+      libData.rarity === 'Rare' ||
+      libData.rarity === 'Epic' ||
+      libData.rarity === 'Legendary';
+    turnUpdate.player_a_cards_played = FieldValue.increment(1);
+    if (isUnit) {
+      turnUpdate.player_a_units_played = FieldValue.increment(1);
+      const laneLoc = laneToLocationState(targetLane);
+      if (laneLoc === 'melee') turnUpdate.player_a_melee_lane_played = FieldValue.increment(1);
+      else if (laneLoc === 'ranged') turnUpdate.player_a_ranged_lane_played = FieldValue.increment(1);
+      else if (laneLoc === 'siege') turnUpdate.player_a_siege_lane_played = FieldValue.increment(1);
+    }
+    if (isSpell) {
+      turnUpdate.player_a_spells_played = FieldValue.increment(1);
+    }
+    if (isHighRarity) {
+      turnUpdate.player_a_rare_or_higher_played = FieldValue.increment(1);
+    }
+  }
+
+  batch.update(sessionRef, turnUpdate);
 
   await batch.commit();
 

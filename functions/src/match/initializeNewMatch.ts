@@ -354,6 +354,29 @@ export const initializeNewMatch = onCall<InitializeNewMatchInput, Promise<Initia
       matchSession.player_b_commander_active_lane = bossCommanderActiveLane;
     }
 
+    // Release 1.1.0 — quest tracking. Persist the human player's faction
+    // so settle-at-claim faction-filtered quests have authoritative
+    // data, regardless of mid-match profile changes. For battle_mode the
+    // faction comes from the saved deck (which can differ from the
+    // profile's active_faction); for all other modes use the profile.
+    if (mode === 'battle_mode' && battleOpponentDeck) {
+      // battleOpponentDeck.faction is the OPPONENT's faction; the
+      // player's faction comes from the player's chosen saved deck.
+      // We re-read here for clarity — playerACardIds was built from it.
+      const playerDeckSnap = await db
+        .collection('player_saved_decks')
+        .doc(uid)
+        .collection('decks')
+        .doc(request.data!.player_deck_id!)
+        .get();
+      const playerFaction = playerDeckSnap.exists
+        ? (playerDeckSnap.data() as SavedDeck).faction
+        : (profile.active_faction as string);
+      matchSession.player_a_faction = playerFaction;
+    } else {
+      matchSession.player_a_faction = profile.active_faction as string;
+    }
+
     const boardStateDocs = buildBoardStateDocs({
       matchId,
       playerACardIds,

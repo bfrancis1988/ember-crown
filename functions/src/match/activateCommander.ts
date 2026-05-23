@@ -55,11 +55,16 @@ export const activateCommander = onCall<ActivateCommanderInput, Promise<Activate
 
       // ── Writes ───────────────────────────────────────────────────────────
       // active_turn is intentionally untouched.
-      tx.update(ctx.sessionRef, {
+      const sessionUpdate: Record<string, unknown> = {
         [usedFlag]: true,
         [activeLaneField]: commanderLane,
         updated_at: FieldValue.serverTimestamp(),
-      });
+      };
+      // Release 1.1.0 — quest counter (player_a only, non-tutorial).
+      if (ctx.callerSide === 'player_a' && session.mode !== 'tutorial') {
+        sessionUpdate.player_a_commander_used_count = FieldValue.increment(1);
+      }
+      tx.update(ctx.sessionRef, sessionUpdate);
 
       return { commanderId, commanderLane };
     });

@@ -16,6 +16,8 @@ import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { MatchSession } from '../types/match';
 import type { CampaignStage } from '../types/campaign';
+import { settleInTx, countCardsLost, pickPlayerACounters } from '../quests/questSettlement';
+import { incrementMatchStatsInTx } from '../lib/playerStats';
 
 type RecordCampaignWinInput = { match_id: string };
 
@@ -43,6 +45,9 @@ export const recordCampaignWin = onCall<RecordCampaignWinInput, Promise<RecordCa
     }
 
     const db = admin.firestore();
+
+    // Release 1.1.0 — cached lazily across tx retries.
+    let cardsLostForQuest: number | null = null;
 
     const result = await db.runTransaction(async (tx) => {
       // ── Reads (all before any writes) ────────────────────────────────────
@@ -139,6 +144,30 @@ export const recordCampaignWin = onCall<RecordCampaignWinInput, Promise<RecordCa
         progress.progress?.[stage.faction] ?? 0,
         stage.stage_number,
       );
+
+      // ── Quest settlement (campaign mode: always player_a; isVictory true) ──
+      // Adds campaign_stages_won on top of the per-card-play session counters.
+      if (cardsLostForQuest === null) {
+        cardsLostForQuest = await countCardsLost(match_id, db);
+      }
+      const increments = pickPlayerACounters(session);
+      increments.campaign_stages_won = 1;
+      await settleInTx(
+        tx,
+        uid,
+        {
+          counterIncrements: increments,
+          match: {
+            isVictory: true,
+            isCompleted: true,
+            player_a_faction: session.player_a_faction,
+            cards_lost: cardsLostForQuest,
+          },
+        },
+        db,
+      );
+      // Release 1.1.0 — lifetime match stats. Campaign is always a win.
+      incrementMatchStatsInTx(tx, uid, { mode: 'campaign', isVictory: true }, db);
 
       // ── Writes ───────────────────────────────────────────────────────────
       tx.update(walletRef, {

@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.1.0 — 2026-05-23
+
+### New features
+
+- Daily and weekly quest system. Complete quests to earn coins,
+  shards, and keys.
+- Brand new summon animation with rarity-themed crystal effects.
+
+### Animation polish
+
+- Cards now fly from your hand to the lane when played.
+- Damage and healing numbers float above affected cards.
+- Card power numbers smoothly transition color when buffed or
+  debuffed.
+- Lane debuffs now pulse to draw attention.
+
+### Bug fixes (from 1.0.7)
+
+- Cleave now properly damages enemy units.
+- Ritual now properly grants the played card a power bonus.
+
+### Match record fix
+
+Your Record screen now correctly tracks lifetime match totals.
+Previously, completed matches were being archived from our servers
+after 12 hours, which caused your win count to slowly shrink over
+time. Now every match is permanently recorded the moment it ends.
+
+Note: counts shown are matches played from 1.1.0 forward. Earlier
+matches couldn't be recovered.
+
 ## v1.0.7 — 2026-05-21
 
 ### Bug fixes

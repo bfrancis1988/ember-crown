@@ -17,6 +17,8 @@ import {
 import { applyShardStreak } from '../lib/shardStreak';
 import type { MatchSession } from '../types/match';
 import type { ClaimMatchRewardsResult } from '../types/actions';
+import { settleInTx, countCardsLost, pickPlayerACounters } from '../quests/questSettlement';
+import { incrementMatchStatsInTx } from '../lib/playerStats';
 
 type ClaimInput = { matchId: string };
 
@@ -36,6 +38,12 @@ export const claimMatchRewards = onCall<ClaimInput, Promise<ClaimMatchRewardsRes
     const sessionRef = db.collection('match_sessions').doc(matchId);
     const walletRef = db.collection('player_wallets').doc(uid);
     const profileRef = db.collection('player_profiles').doc(uid);
+
+    // Release 1.1.0 — Quest settlement: count player_a cards lost
+    // outside the transaction. Bounded ~15 reads (player's deck size).
+    // Done up-front so the value is available inside the tx without
+    // adding more reads there.
+    let cardsLostForQuest: number | null = null;
 
     const result = await db.runTransaction(async (tx) => {
       // ── Reads (all before any writes; Firestore transaction rule) ────────
@@ -79,6 +87,35 @@ export const claimMatchRewards = onCall<ClaimInput, Promise<ClaimMatchRewardsRes
       const { streakShard, newStreak } = applyShardStreak(priorStreak, isVictory);
 
       const shardsEarned = baseShardsEarned + streakShard;
+
+      // ── Quest settlement (player_a only; tutorial excluded) ──────────────
+      // Must run BEFORE the writes below — settleInTx does its own reads
+      // (quest_progress) and Firestore enforces reads-before-writes.
+      if (callerSide === 'player_a' && session.mode !== 'tutorial') {
+        // Fetch cards_lost once (outside tx is fine — match is over,
+        // board state is stable). Lazily cached across tx retries.
+        if (cardsLostForQuest === null) {
+          cardsLostForQuest = await countCardsLost(matchId, db);
+        }
+        const increments = pickPlayerACounters(session);
+        await settleInTx(
+          tx,
+          uid,
+          {
+            counterIncrements: increments,
+            match: {
+              isVictory,
+              isCompleted: true,
+              player_a_faction: session.player_a_faction,
+              cards_lost: cardsLostForQuest,
+            },
+          },
+          db,
+        );
+        // Release 1.1.0 — lifetime match stats. Engineered to not throw
+        // on any valid input (see playerStats.ts for atomicity contract).
+        incrementMatchStatsInTx(tx, uid, { mode: session.mode, isVictory }, db);
+      }
 
       // ── Writes ───────────────────────────────────────────────────────────
       // Wallet should exist (created during onboarding); defensive create if missing.

@@ -26,3 +26,7 @@ export { deleteSavedDeck } from './decks/deleteSavedDeck';
 export { setActiveSavedDeck } from './decks/setActiveSavedDeck';
 export { findBattleOpponent } from './match/findBattleOpponent';
 export { updateBossRewards } from './migrations/updateBossRewards';
+export { assignQuests } from './quests/assignQuests';
+export { claimQuest } from './quests/claimQuest';
+export { dailyQuestReset } from './quests/dailyQuestReset';
+export { weeklyQuestReset } from './quests/weeklyQuestReset';

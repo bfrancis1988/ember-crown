@@ -1,13 +1,13 @@
 // app/(app)/record.tsx
 // Phase 9 Session 2: Player record / stats screen.
 //
-// v1 reads only from existing collections — no new aggregation Cloud
-// Functions. Match counts come from a one-shot query of match_sessions
-// (limit 100; we show "100+" once we hit the cap). v1.1 should add a
-// player_stats doc that increments on match completion to remove the
-// query cost.
+// Release 1.1.0 — match counts now read from player_stats/{uid}, an
+// authoritative server-incremented doc written by claimMatchRewards and
+// recordCampaignWin. Replaces the prior approach of querying
+// match_sessions (which silently lost data once cleanupStaleMatches
+// deleted claimed matches 12h after game_over).
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -16,46 +16,19 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  collection,
-  getDocs,
-  limit as fsLimit,
-  query,
-  where,
-} from 'firebase/firestore';
-import { db } from '../../src/lib/firebase';
-import { useAuth } from '../../src/contexts/AuthContext';
 import { usePlayerProfile } from '../../src/hooks/usePlayerProfile';
 import { usePlayerWallet } from '../../src/hooks/usePlayerWallet';
 import { usePlayerInventory } from '../../src/hooks/usePlayerInventory';
 import { useCampaignProgress } from '../../src/hooks/useCampaignProgress';
 import { useCardLibrary } from '../../src/hooks/useCardLibrary';
+import { usePlayerStats } from '../../src/hooks/usePlayerStats';
 import { FACTIONS } from '../../src/lib/factions';
-import type { MatchSession, MatchMode } from '../../src/types/match';
 
 const TOTAL_FACTIONS = 6;
 const TOTAL_COMMANDERS = 18;
 const TOTAL_CAMPAIGN_STAGES = 54;
-const MATCH_QUERY_LIMIT = 100;
-
-type MatchStats = {
-  total: number;
-  capped: boolean;
-  byMode: Record<MatchMode, number>;
-  wins: number;
-  finishedTotal: number;
-};
-
-const EMPTY_MATCH_STATS: MatchStats = {
-  total: 0,
-  capped: false,
-  byMode: { solo: 0, tutorial: 0, campaign: 0, battle_mode: 0 },
-  wins: 0,
-  finishedTotal: 0,
-};
 
 export default function RecordScreen() {
-  const { user } = useAuth();
   const { profile, isLoading: profileLoading } = usePlayerProfile();
   const { wallet, isLoading: walletLoading } = usePlayerWallet();
   const { inventory, isLoading: inventoryLoading } = usePlayerInventory();
@@ -63,58 +36,7 @@ export default function RecordScreen() {
   // Phase 9.4.3C — total card count comes from card_library, not a hardcoded
   // constant. The library grows over time (88 → 144 in 9.4.2).
   const { cards: cardLibrary, isLoading: cardLibraryLoading } = useCardLibrary();
-
-  const [matchStats, setMatchStats] = useState<MatchStats>(EMPTY_MATCH_STATS);
-  const [matchStatsLoading, setMatchStatsLoading] = useState(true);
-  const [matchStatsError, setMatchStatsError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    setMatchStatsLoading(true);
-    setMatchStatsError(null);
-
-    (async () => {
-      try {
-        const q = query(
-          collection(db, 'match_sessions'),
-          where('player_a_id', '==', user.uid),
-          fsLimit(MATCH_QUERY_LIMIT)
-        );
-        const snap = await getDocs(q);
-        if (cancelled) return;
-
-        const stats: MatchStats = {
-          total: snap.size,
-          capped: snap.size === MATCH_QUERY_LIMIT,
-          byMode: { solo: 0, tutorial: 0, campaign: 0, battle_mode: 0 },
-          wins: 0,
-          finishedTotal: 0,
-        };
-        for (const d of snap.docs) {
-          const m = d.data() as MatchSession;
-          if (m.mode in stats.byMode) {
-            stats.byMode[m.mode] += 1;
-          }
-          if (m.status === 'game_over') {
-            stats.finishedTotal += 1;
-            if (m.player_a_wins > m.player_b_wins) stats.wins += 1;
-          }
-        }
-        setMatchStats(stats);
-      } catch (err) {
-        if (cancelled) return;
-        const msg = err instanceof Error ? err.message : 'Unknown error';
-        setMatchStatsError(msg);
-      } finally {
-        if (!cancelled) setMatchStatsLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+  const { stats: matchStats, isLoading: matchStatsLoading } = usePlayerStats();
 
   const isLoading =
     profileLoading ||
@@ -139,14 +61,10 @@ export default function RecordScreen() {
     ? Object.values(progress.progress ?? {}).reduce((acc, n) => acc + n, 0)
     : 0;
 
+  const totalMatches = matchStats?.total_matches ?? 0;
+  const totalWins = matchStats?.total_wins ?? 0;
   const winRatePct =
-    matchStats.finishedTotal > 0
-      ? Math.round((matchStats.wins / matchStats.finishedTotal) * 100)
-      : 0;
-
-  const matchTotalLabel = matchStats.capped
-    ? `${MATCH_QUERY_LIMIT}+`
-    : String(matchStats.total);
+    totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0;
 
   const memberSinceLabel = profile?.created_at
     ? formatDate(profile.created_at.toDate())
@@ -182,14 +100,14 @@ export default function RecordScreen() {
           <Section title="Match Stats">
             <Stat
               label="Total matches"
-              value={matchStatsLoading ? '—' : matchTotalLabel}
+              value={matchStatsLoading ? '—' : String(totalMatches)}
             />
             <Stat
-              label="Solo / Campaign / Battle / Tutorial"
+              label="Solo / Campaign / Battle"
               value={
                 matchStatsLoading
                   ? '—'
-                  : `${matchStats.byMode.solo} / ${matchStats.byMode.campaign} / ${matchStats.byMode.battle_mode} / ${matchStats.byMode.tutorial}`
+                  : `${matchStats?.solo_matches ?? 0} / ${matchStats?.campaign_matches ?? 0} / ${matchStats?.battle_matches ?? 0}`
               }
             />
             <Stat
@@ -197,14 +115,11 @@ export default function RecordScreen() {
               value={
                 matchStatsLoading
                   ? '—'
-                  : matchStats.finishedTotal === 0
+                  : totalMatches === 0
                   ? '—'
-                  : `${winRatePct}% (${matchStats.wins} of ${matchStats.finishedTotal})`
+                  : `${winRatePct}% (${totalWins} of ${totalMatches})`
               }
             />
-            {matchStatsError && (
-              <Text style={styles.errorText}>Couldn't load matches: {matchStatsError}</Text>
-            )}
           </Section>
 
           <Section title="Collection">
@@ -338,15 +253,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
-  },
-  errorText: {
-    color: '#e08080',
-    fontSize: 12,
-    paddingVertical: 8,
-  },
-  loadingText: {
-    color: '#888',
-    fontSize: 12,
-    paddingVertical: 8,
   },
 });

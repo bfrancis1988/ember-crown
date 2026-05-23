@@ -70,6 +70,20 @@ export type MatchSession = {
   battle_opponent_power_score?: number;
   battle_opponent_faction?: string;
 
+  // Release 1.1.0 — quest tracking. Frozen at init time; counters
+  // accumulate over the life of the match and are settled into
+  // quest_progress at claim time. All optional / default 0 for lazy
+  // migration of pre-1.1 matches.
+  player_a_faction?: string;
+  player_a_cards_played?: number;
+  player_a_units_played?: number;
+  player_a_spells_played?: number;
+  player_a_melee_lane_played?: number;
+  player_a_ranged_lane_played?: number;
+  player_a_siege_lane_played?: number;
+  player_a_commander_used_count?: number;
+  player_a_rare_or_higher_played?: number;
+
   created_at: Timestamp;
   updated_at: Timestamp;
 };
