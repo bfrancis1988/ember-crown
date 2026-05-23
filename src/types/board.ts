@@ -21,6 +21,11 @@ export type LiveBoardState = {
   // Phase 9.4.2A — Veteran keyword permanently raises this per round.
   // Treat undefined as 0 for lazy migration of pre-9.4.2 instances.
   base_power_bonus?: number;
+  // Update 1.0.7 — accumulated direct damage (Cleave). Subtracted by
+  // computeCardPower so it survives a power recalc; a raw current_power write
+  // would be reverted by computePowerUpdates. Treat undefined as 0 for lazy
+  // migration of pre-1.0.7 instances.
+  damage_taken?: number;
   // Phase 9.4.2B — true for token units spawned by Swarm. Real cards omit it.
   // Tokens have no card_library entry; their display + power data lives inline
   // on `token_data` so calculatePower/render can treat them as synthesised

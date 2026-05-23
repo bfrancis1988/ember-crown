@@ -188,6 +188,9 @@ export async function executeEndRoundInternal(
     batch.update(ref, {
       location_state: 'discard',
       current_power: baseP + newBonus,
+      // Update 1.0.7 — clear accumulated Cleave damage on the lane wipe so a
+      // unit's combat damage doesn't conceptually carry past the round.
+      damage_taken: 0,
     });
   }
 

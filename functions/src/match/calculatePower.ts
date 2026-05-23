@@ -12,6 +12,7 @@ export type CardForPowerCalc = {
   location_state: LocationState;
   current_power: number;
   base_power_bonus?: number;
+  damage_taken?: number;
 };
 
 export type CardLibraryDataForPowerCalc = {
@@ -103,6 +104,11 @@ export function computeCardPower(
       card.owner === 'player_a' ? (session.bot_debuff_strength ?? 2) : 2;
     power -= debuffStrength;
   }
+
+  // Update 1.0.7 — accumulated direct damage (Cleave) reduces effective power.
+  // Stored on the doc so it survives every recalc; a raw current_power write
+  // would be reverted by computePowerUpdates on the next trigger fire.
+  power -= card.damage_taken ?? 0;
 
   if (power < 0) power = 0;
   return power;
