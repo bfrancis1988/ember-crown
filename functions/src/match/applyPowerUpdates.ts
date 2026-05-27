@@ -9,6 +9,7 @@ import {
   type CardForPowerCalc,
   type CardLibraryDataForPowerCalc,
 } from './calculatePower';
+import { resolvePassiveContext } from './commanderPassives';
 import type { MatchSession } from '../types/match';
 
 export async function recalculateMatchPower(
@@ -92,8 +93,13 @@ export async function recalculateMatchPower(
     }
   }
 
-  // 4. Compute deltas only.
-  const updates = computePowerUpdates(cards, cardLibraryMap, session);
+  // 4. Resolve commander passive context (Release 1.2.0). Short-circuits to
+  // empty if neither side has activated, so no commander_library reads
+  // happen in the common case.
+  const passiveContext = await resolvePassiveContext(session, db);
+
+  // 5. Compute deltas only.
+  const updates = computePowerUpdates(cards, cardLibraryMap, session, passiveContext);
   if (updates.length === 0) return 0;
 
   // 5. Batch write.

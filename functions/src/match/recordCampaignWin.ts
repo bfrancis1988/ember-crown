@@ -18,6 +18,7 @@ import type { MatchSession } from '../types/match';
 import type { CampaignStage } from '../types/campaign';
 import { settleInTx, countCardsLost, pickPlayerACounters } from '../quests/questSettlement';
 import { incrementMatchStatsInTx } from '../lib/playerStats';
+import { writeMatchHistoryInTx } from '../lib/matchHistory';
 
 type RecordCampaignWinInput = { match_id: string };
 
@@ -168,6 +169,10 @@ export const recordCampaignWin = onCall<RecordCampaignWinInput, Promise<RecordCa
       );
       // Release 1.1.0 — lifetime match stats. Campaign is always a win.
       incrementMatchStatsInTx(tx, uid, { mode: 'campaign', isVictory: true }, db);
+      // Release 1.2.0 — per-match history row. Campaign claim path is
+      // wins-only (rejected at line ~80), so isVictory is always true here.
+      // cardsLostForQuest is populated by the settleInTx call above.
+      writeMatchHistoryInTx(tx, uid, session, true, cardsLostForQuest ?? 0, db);
 
       // ── Writes ───────────────────────────────────────────────────────────
       tx.update(walletRef, {

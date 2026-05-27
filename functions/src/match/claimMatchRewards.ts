@@ -19,6 +19,7 @@ import type { MatchSession } from '../types/match';
 import type { ClaimMatchRewardsResult } from '../types/actions';
 import { settleInTx, countCardsLost, pickPlayerACounters } from '../quests/questSettlement';
 import { incrementMatchStatsInTx } from '../lib/playerStats';
+import { writeMatchHistoryInTx } from '../lib/matchHistory';
 
 type ClaimInput = { matchId: string };
 
@@ -115,6 +116,13 @@ export const claimMatchRewards = onCall<ClaimInput, Promise<ClaimMatchRewardsRes
         // Release 1.1.0 — lifetime match stats. Engineered to not throw
         // on any valid input (see playerStats.ts for atomicity contract).
         incrementMatchStatsInTx(tx, uid, { mode: session.mode, isVictory }, db);
+        // Release 1.2.0 — per-match history row. Same atomicity contract;
+        // see matchHistory.ts. Tutorial is already excluded by the
+        // surrounding branch condition. cardsLostForQuest is guaranteed
+        // non-null here — settleInTx above runs unconditionally in this
+        // branch and either sets it or has already been populated by a
+        // prior tx retry.
+        writeMatchHistoryInTx(tx, uid, session, isVictory, cardsLostForQuest ?? 0, db);
       }
 
       // ── Writes ───────────────────────────────────────────────────────────

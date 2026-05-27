@@ -13,6 +13,7 @@ export { onBothPlayersPassed } from './match/onBothPlayersPassed';
 export { claimMatchRewards } from './match/claimMatchRewards';
 export { claimMatchRewardsWithAd } from './match/claimMatchRewardsWithAd';
 export { cleanupStaleMatches } from './match/cleanupStaleMatches';
+export { cleanupStaleMatchHistory } from './match/cleanupStaleMatchHistory';
 export { recordCampaignWin } from './match/recordCampaignWin';
 export { completeOnboardingFn } from './onboarding/completeOnboardingFn';
 export { completeTutorial } from './onboarding/completeTutorial';
