@@ -201,6 +201,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // === PLAYER MATCH HISTORY (Release 1.2.0) ===
+    // Per-player log of completed matches at
+    // player_match_history/{uid}/matches/{matchId}. One doc per claim,
+    // written from inside the claim transaction by writeMatchHistoryInTx.
+    // Owner-readable. cleanupStaleMatchHistory deletes rows older than
+    // 90 days (by written_at).
+    match /player_match_history/{uid}/matches/{matchId} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
     // === MATCH SESSIONS ===
     match /match_sessions/{matchId} {
       // Read: only participants.

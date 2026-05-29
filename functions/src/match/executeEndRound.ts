@@ -15,6 +15,7 @@ import {
   type CardForBurn,
   type CardForVeteran,
 } from './keywordEffects';
+import { resolvePassiveContext, foresightBonusFor } from './commanderPassives';
 
 export async function executeEndRoundInternal(
   matchId: string,
@@ -201,6 +202,14 @@ export async function executeEndRoundInternal(
     sessionUpdates.player_b_passed = false;
     sessionUpdates.active_turn = 'player_a'; // base44 behavior: A always starts subsequent rounds.
 
+    // Release 1.2.0 — commander passive: foresight grants +1 to round-start
+    // draws for whichever side has activated their Ranged commander. We
+    // resolve here (and not at the top of the function) because the round
+    // tally / VP / burn logic above doesn't need passive context, and the
+    // commander_library reads are skipped entirely when neither side has
+    // activated.
+    const passiveContext = await resolvePassiveContext(session, db);
+
     // Each side draws up to END_ROUND_DRAW_COUNT (could be < if deck empty).
     for (const side of ['player_a', 'player_b'] as const) {
       const deckSnap = await db.collection('live_board_state')
@@ -216,11 +225,13 @@ export async function executeEndRoundInternal(
         [deckArr[i], deckArr[j]] = [deckArr[j], deckArr[i]];
       }
       // Bot can draw extra under boss rules; default extra is 0.
+      // Foresight stacks on top of both the base and the bot bonus.
       const baseDraw =
         side === 'player_b'
           ? END_ROUND_DRAW_COUNT + (session.bot_extra_round_draw ?? 0)
           : END_ROUND_DRAW_COUNT;
-      const drawCount = Math.min(baseDraw, deckArr.length);
+      const foresight = foresightBonusFor(side, passiveContext);
+      const drawCount = Math.min(baseDraw + foresight, deckArr.length);
       for (let i = 0; i < drawCount; i++) {
         batch.update(deckArr[i].ref, { location_state: 'hand' });
       }

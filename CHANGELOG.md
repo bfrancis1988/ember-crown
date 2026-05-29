@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.2.0 — 2026-05-26
+
+### New features
+
+- Commander passives are now active. Activating a commander
+  grants a lane-based passive that lasts the rest of the match:
+  - Melee commanders: your Melee lane ignores debuffs
+  - Ranged commanders: +1 card at the start of every subsequent
+    round
+  - Siege commanders: +2 power to your highest-power Siege unit,
+    recalculated each turn
+- Match history is now tracked per player. Every completed match
+  records its outcome, faction, commander, and key stats. This
+  enables future contests, leaderboards, and detailed stat
+  breakdowns.
+
+### Fixes
+
+- Ad-claimed matches now count toward player_stats and quest
+  progress (a 1.1.0 gap)
+
+### Public launch
+
+This is the first release available on the Google Play production
+track, marking Ember Crown's public Android launch.
+
 ## v1.1.1 — 2026-05-23
 
 ### Bug fixes

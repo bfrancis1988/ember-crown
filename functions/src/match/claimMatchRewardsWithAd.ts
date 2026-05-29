@@ -32,6 +32,9 @@ import {
 } from '../lib/matchConstants';
 import type { MatchSession } from '../types/match';
 import type { CampaignStage } from '../types/campaign';
+import { settleInTx, countCardsLost, pickPlayerACounters } from '../quests/questSettlement';
+import { incrementMatchStatsInTx } from '../lib/playerStats';
+import { writeMatchHistoryInTx } from '../lib/matchHistory';
 
 type ClaimWithAdInput = { match_id: string };
 
@@ -70,6 +73,11 @@ export const claimMatchRewardsWithAd = onCall<ClaimWithAdInput, Promise<ClaimWit
     }
 
     const db = admin.firestore();
+
+    // Release 1.2.0 — cards_lost is fetched once outside the tx (match is
+    // already over so board state is stable) and cached lazily across tx
+    // retries. Mirrors claimMatchRewards / recordCampaignWin.
+    let cardsLostForQuest: number | null = null;
 
     const result = await db.runTransaction(async (tx) => {
       // ── Reads (all before any writes; Firestore transaction rule) ────────
@@ -180,6 +188,37 @@ export const claimMatchRewardsWithAd = onCall<ClaimWithAdInput, Promise<ClaimWit
         throw new HttpsError('failed-precondition', `Unsupported mode: ${session.mode}`);
       }
 
+      // ── Quest settlement + lifetime stats (Release 1.2.0 — gap fix) ──────
+      // Mirrors the no-ad claim paths so a match counted toward quests and
+      // player_stats whether the player chose the ad bonus or not. Was
+      // missed when player_stats / quests landed in 1.1.0 — fixed here so
+      // record.tsx (which reads player_stats) reflects all claimed matches.
+      //
+      // Must run before the writes below — settleInTx does its own reads
+      // (quest_progress) and Firestore enforces reads-before-writes.
+      if (cardsLostForQuest === null) {
+        cardsLostForQuest = await countCardsLost(match_id, db);
+      }
+      const increments = pickPlayerACounters(session);
+      if (session.mode === 'campaign' && isWin) {
+        increments.campaign_stages_won = 1;
+      }
+      await settleInTx(
+        tx,
+        uid,
+        {
+          counterIncrements: increments,
+          match: {
+            isVictory: isWin,
+            isCompleted: true,
+            player_a_faction: session.player_a_faction,
+            cards_lost: cardsLostForQuest,
+          },
+        },
+        db,
+      );
+      incrementMatchStatsInTx(tx, uid, { mode: session.mode, isVictory: isWin }, db);
+
       // ── Apply ad multiplier ──────────────────────────────────────────────
       // Update 1.0.5: 1.5× win bonus (down from 2×); keys no longer
       // ad-boosted on campaign first-clear; solo loss base is the no-ad loss
@@ -225,6 +264,10 @@ export const claimMatchRewardsWithAd = onCall<ClaimWithAdInput, Promise<ClaimWit
         ad_reward_claimed: true,
         updated_at: FieldValue.serverTimestamp(),
       });
+
+      // Release 1.2.0 — per-match history row. cardsLostForQuest is
+      // guaranteed non-null here — settleInTx above populated it.
+      writeMatchHistoryInTx(tx, uid, session, isWin, cardsLostForQuest ?? 0, db);
 
       // Campaign WIN — apply progression updates (mirrors recordCampaignWin).
       // Loss does NOT update progression: completed_stages stays empty so the
