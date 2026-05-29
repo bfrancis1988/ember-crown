@@ -35,6 +35,9 @@ export type MatchOutcome = {
   // Number of player_a cards that ended up in 'discard' state this match
   // — used by the conditional_match "win without losing more than N" quest.
   cards_lost: number;
+  // Match mode ('solo' | 'battle_mode' | 'campaign' | ...). Only solo and
+  // battle_mode outcomes affect the win-streak counter.
+  mode?: string;
 };
 
 export type SettlementInput = {
@@ -127,9 +130,15 @@ export async function settleInTx(
       daily_counters: {},
       weekly_counters: {},
       weekly_streak_days: {},
+      current_win_streak: 0,
       created_at: serverNow,
       updated_at: serverNow,
     };
+  }
+
+  // Backfill for quest_progress docs created before win-streak existed.
+  if (typeof progress.current_win_streak !== 'number') {
+    progress.current_win_streak = 0;
   }
 
   // Refresh stale cycles. Eligibility fetched non-transactionally (1
@@ -174,6 +183,15 @@ export async function settleInTx(
     }
   }
 
+  // Win-streak counter — solo + battle_mode only. A win extends it; a loss
+  // or draw resets it to 0. Campaign and tutorial outcomes are ignored
+  // (they neither extend nor reset). Persists across daily/weekly resets.
+  if (input.match && (input.match.mode === 'solo' || input.match.mode === 'battle_mode')) {
+    progress.current_win_streak = input.match.isVictory
+      ? progress.current_win_streak + 1
+      : 0;
+  }
+
   // Re-evaluate active quest progress for counter / streak quests.
   recomputeQuestProgress(progress.daily_quests, progress.daily_counters);
   recomputeQuestProgress(progress.weekly_quests, progress.weekly_counters);
@@ -184,6 +202,15 @@ export async function settleInTx(
     if (def?.tracker_kind === 'streak') {
       const days = Object.values(progress.weekly_streak_days).filter(Boolean).length;
       q.progress = Math.min(q.target, days);
+    }
+  }
+
+  // win_streak quest progress is read straight from the persistent counter.
+  for (const q of progress.daily_quests) {
+    if (q.claimed) continue;
+    const def = getDefinition(q.quest_id);
+    if (def?.tracker_kind === 'win_streak') {
+      q.progress = Math.min(q.target, progress.current_win_streak);
     }
   }
 

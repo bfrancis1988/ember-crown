@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.2.1 — 2026-05-29
+
+### New features
+
+- Sign in with Google. Sign up or sign in using your Google
+  account on the login screen, or upgrade a guest account to
+  Google from the "Save Progress" prompt.
+- Browse all commanders. The Card Library now includes a
+  Commanders section so you can see every commander across all
+  factions. In the Guild Hall, long-press a commander to view
+  its details.
+
+### Changes
+
+- Quest swap: the "win without losing cards" daily quest has
+  been replaced with "win 3 matches in a row" — a better fit
+  for lane-based play. Solo and Battle Mode wins count toward
+  the streak.
+
+### Polish
+
+- Bigger, more prominent splash screen logo on both iOS and
+  Android.
+- Password reset emails now mention checking the spam folder.
+
+### Stability
+
+- Fixed a startup crash on certain Android devices.
+- Various reliability improvements.
+
 ## v1.2.0 — 2026-05-26
 
 ### New features

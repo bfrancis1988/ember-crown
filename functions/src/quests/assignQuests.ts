@@ -59,6 +59,7 @@ export const assignQuests = onCall<AssignQuestsInput, Promise<AssignQuestsResult
           daily_counters: {},
           weekly_counters: {},
           weekly_streak_days: {},
+          current_win_streak: 0,
           created_at: serverNow,
           updated_at: serverNow,
         };

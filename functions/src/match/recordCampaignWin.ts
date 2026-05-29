@@ -163,6 +163,7 @@ export const recordCampaignWin = onCall<RecordCampaignWinInput, Promise<RecordCa
             isCompleted: true,
             player_a_faction: session.player_a_faction,
             cards_lost: cardsLostForQuest,
+            mode: 'campaign',
           },
         },
         db,

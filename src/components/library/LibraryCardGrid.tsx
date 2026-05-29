@@ -25,6 +25,9 @@ type Props = {
   onTapCard: (card: CardLibraryEntry) => void;
   mode?: 'browse' | 'craft';
   dustAvailable?: number;
+  // Optional content rendered above the grid (e.g. the library Commanders
+  // section). Spans full width, scrolls with the grid.
+  ListHeaderComponent?: React.ReactElement | null;
 };
 
 const COLUMNS = 3;
@@ -58,6 +61,7 @@ export function LibraryCardGrid({
   onTapCard,
   mode = 'browse',
   dustAvailable = 0,
+  ListHeaderComponent = null,
 }: Props) {
   const factionMeta = FACTIONS.find((f) => f.id === factionId);
   const factionColor = factionMeta?.color ?? '#888';
@@ -90,6 +94,7 @@ export function LibraryCardGrid({
       data={sortedCards}
       keyExtractor={(card) => card.card_id}
       numColumns={COLUMNS}
+      ListHeaderComponent={ListHeaderComponent}
       contentContainerStyle={styles.listContent}
       columnWrapperStyle={styles.row}
       renderItem={({ item: card }) => {

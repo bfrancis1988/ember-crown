@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "903632353042-54uamjvkhoq6r1ac367jc9embj0kpdik.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.embercrown.app",
+            "certificate_hash": "a789e505c817a122ea906ea6eaa3d48b3a30ab18"
+          }
+        },
+        {
+          "client_id": "903632353042-hsjqrmk34omhftjfkfk34f1mtksnuoom.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.embercrown.app",
+            "certificate_hash": "9adf1de2e0c6823d90bce0271df7c19b58c0dafd"
+          }
+        },
+        {
           "client_id": "903632353042-cpnikna91a954raor53q2s7b31fsk056.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -25,6 +25,7 @@ import {
   type InventoryCardView,
 } from '../../src/hooks/useFactionInventory';
 import { CommanderPicker } from '../../src/components/guild-hall/CommanderPicker';
+import { CommanderDetailModal } from '../../src/components/library/CommanderDetailModal';
 import { DeckStrip } from '../../src/components/guild-hall/DeckStrip';
 import { FactionTabs } from '../../src/components/guild-hall/FactionTabs';
 import {
@@ -50,6 +51,7 @@ import {
 } from '../../src/lib/savedDeckHelpers';
 import { FACTIONS, STARTER_FACTION, type FactionId } from '../../src/lib/factions';
 import type { Rarity } from '../../src/types/card';
+import type { CommanderEntry } from '../../src/types/commander';
 import type { DeckSlot } from '../../src/types/deck';
 import type { SavedDeck, SavedDeckSlotNumber } from '../../src/types/savedDeck';
 
@@ -88,6 +90,7 @@ export default function GuildHallScreen() {
   // When editing an existing deck, remember which deck so saving
   // becomes an update rather than a fresh create.
   const [editingDeck, setEditingDeck] = useState<SavedDeck | null>(null);
+  const [viewedCommander, setViewedCommander] = useState<CommanderEntry | null>(null);
 
   const factionMeta = factionId ? FACTIONS.find((f) => f.id === factionId) : undefined;
   const accent = factionMeta?.color ?? '#d4a04a';
@@ -454,6 +457,13 @@ export default function GuildHallScreen() {
             factionId={factionId}
             selectedCommanderId={profile?.selected_commander ?? null}
             onSelectCommander={handleSelectCommander}
+            onViewCommander={setViewedCommander}
+          />
+
+          <CommanderDetailModal
+            commander={viewedCommander}
+            factionColor={accent}
+            onClose={() => setViewedCommander(null)}
           />
 
           <SavedDecksList

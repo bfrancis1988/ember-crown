@@ -10,11 +10,16 @@ import {
   createUserWithEmailAndPassword,
   signInAnonymously,
   EmailAuthProvider,
+  GoogleAuthProvider,
   linkWithCredential,
+  signInWithCredential,
+  getAdditionalUserInfo,
+  AuthCredential,
   signOut as firebaseSignOut,
   User,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { GoogleSignin } from '../lib/googleSignin';
 
 type AuthContextValue = {
   user: User | null;
@@ -23,6 +28,8 @@ type AuthContextValue = {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signInAsGuest: () => Promise<void>;
+  signInWithGoogle: () => Promise<{ cancelled: boolean; isNewUser: boolean }>;
+  upgradeAnonymousWithGoogle: () => Promise<{ cancelled: boolean }>;
   upgradeAnonymousAccount: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -67,6 +74,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInAnonymously(auth);
   };
 
+  // Runs the native Google picker and returns a Firebase credential, or null if
+  // the user cancelled. Shared by sign-in and the guest-account upgrade.
+  const getGoogleCredential = async (): Promise<AuthCredential | null> => {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const response = await GoogleSignin.signIn();
+    if (response.type !== 'success') return null;
+    const idToken = response.data.idToken;
+    if (!idToken) {
+      throw new Error('Google sign-in did not return an ID token.');
+    }
+    return GoogleAuthProvider.credential(idToken);
+  };
+
+  // Native Google picker → Firebase credential. The signed-in user flows through
+  // the same onAuthStateChanged listener below, so a brand-new account gets a
+  // profile + onboarding via usePlayerProfile, exactly like an email signup.
+  const signInWithGoogle = async (): Promise<{ cancelled: boolean; isNewUser: boolean }> => {
+    const credential = await getGoogleCredential();
+    if (!credential) return { cancelled: true, isNewUser: false };
+    const result = await signInWithCredential(auth, credential);
+    const isNewUser = getAdditionalUserInfo(result)?.isNewUser ?? false;
+    return { cancelled: false, isNewUser };
+  };
+
+  // Links a Google credential onto the current anonymous user, preserving the
+  // guest's UID and all their progress — mirrors upgradeAnonymousAccount. Throws
+  // auth/credential-already-in-use if that Google account is already attached to
+  // a different account, for the caller to map to a UI message.
+  const upgradeAnonymousWithGoogle = async (): Promise<{ cancelled: boolean }> => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('No signed-in user to upgrade.');
+    }
+    const credential = await getGoogleCredential();
+    if (!credential) return { cancelled: true };
+    await linkWithCredential(currentUser, credential);
+    return { cancelled: false };
+  };
+
   // Upgrades the current anonymous user to a permanent email/password account
   // by linking the credential to the existing UID. This preserves all
   // Firestore data keyed on the UID — wallet, inventory, decks, progress.
@@ -92,6 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInWithEmail,
     signUpWithEmail,
     signInAsGuest,
+    signInWithGoogle,
+    upgradeAnonymousWithGoogle,
     upgradeAnonymousAccount,
     signOut,
   };

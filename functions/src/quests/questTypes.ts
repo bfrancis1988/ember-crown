@@ -9,7 +9,8 @@ export type QuestTrackerKind =
   | 'counter'              // increment by 1 per qualifying event
   | 'max_value'            // progress = max(progress, observed value)
   | 'conditional_match'    // per-match boolean; AssignedQuest.threshold holds N
-  | 'streak';              // distinct UTC dates with all 3 dailies claimed
+  | 'streak'               // distinct UTC dates with all 3 dailies claimed
+  | 'win_streak';          // consecutive solo/battle wins; resets on loss/draw
 
 export type QuestFilter = 'faction' | 'rarity' | null;
 
@@ -80,6 +81,11 @@ export type QuestProgress = {
   // Keys are UTC date strings (YYYY-MM-DD). value === true once the
   // player has claimed all 3 dailies on that day. Reset weekly.
   weekly_streak_days: Record<string, boolean>;
+
+  // Consecutive solo/battle wins. Top-level so it survives daily/weekly
+  // cycle resets; only solo/battle outcomes touch it (win → +1, loss/draw
+  // → 0). Read by 'win_streak' quests.
+  current_win_streak: number;
 
   created_at: Timestamp;
   updated_at: Timestamp;

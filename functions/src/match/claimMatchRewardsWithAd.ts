@@ -213,6 +213,7 @@ export const claimMatchRewardsWithAd = onCall<ClaimWithAdInput, Promise<ClaimWit
             isCompleted: true,
             player_a_faction: session.player_a_faction,
             cards_lost: cardsLostForQuest,
+            mode: session.mode,
           },
         },
         db,

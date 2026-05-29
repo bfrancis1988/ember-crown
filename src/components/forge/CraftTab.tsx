@@ -19,13 +19,17 @@ import { usePlayerProfile } from '../../hooks/usePlayerProfile';
 import { usePlayerInventory } from '../../hooks/usePlayerInventory';
 import { usePlayerActiveDeck } from '../../hooks/usePlayerActiveDeck';
 import { useCardLibrary } from '../../hooks/useCardLibrary';
+import { useCommanderLibrary } from '../../hooks/useCommanderLibrary';
 import { useWalletAndCanSummon } from '../../hooks/useWalletAndCanSummon';
 import { LibraryFactionTabs } from '../library/LibraryFactionTabs';
 import { LibraryCardGrid } from '../library/LibraryCardGrid';
+import { LibraryCommanderSection } from '../library/LibraryCommanderSection';
 import { CardDetailModal } from '../library/CardDetailModal';
+import { CommanderDetailModal } from '../library/CommanderDetailModal';
 import { FACTIONS, STARTER_FACTION, type FactionId } from '../../lib/factions';
 import { DUPLICATE_DUST_VALUES, type Rarity } from '../../lib/banners';
 import type { CardLibraryEntry } from '../../types/card';
+import type { CommanderEntry } from '../../types/commander';
 
 type CraftInput = { card_id: string };
 type CraftResult = {
@@ -84,6 +88,13 @@ export function CraftTab({ mode = 'craft' }: Props) {
   const [selectedFactionId, setSelectedFactionId] = useState<FactionId>(initialFaction);
   const [selectedCard, setSelectedCard] = useState<CardLibraryEntry | null>(null);
 
+  const { commanders } = useCommanderLibrary();
+  const [selectedCommander, setSelectedCommander] = useState<CommanderEntry | null>(null);
+  const factionCommanders = useMemo(
+    () => commanders.filter((c) => c.faction === selectedFactionId),
+    [commanders, selectedFactionId],
+  );
+
   if (profileLoading) {
     return (
       <View style={styles.fullCenter}>
@@ -93,6 +104,8 @@ export function CraftTab({ mode = 'craft' }: Props) {
   }
 
   const isSelectedFactionLocked = !unlockedFactions.includes(selectedFactionId);
+  const selectedFactionColor =
+    FACTIONS.find((f) => f.id === selectedFactionId)?.color ?? '#888';
 
   const detailFactionMeta = selectedCard
     ? FACTIONS.find((f) => f.id === selectedCard.faction)
@@ -170,6 +183,15 @@ export function CraftTab({ mode = 'craft' }: Props) {
         onRetry={() => setLibraryKey((k) => k + 1)}
         mode={mode}
         dustAvailable={dustAvailable}
+        listHeader={
+          mode === 'browse' ? (
+            <LibraryCommanderSection
+              commanders={factionCommanders}
+              factionColor={selectedFactionColor}
+              onTapCommander={setSelectedCommander}
+            />
+          ) : null
+        }
       />
 
       <CardDetailModal
@@ -186,6 +208,12 @@ export function CraftTab({ mode = 'craft' }: Props) {
         onDisenchant={handleDisenchant}
         isDisenchanting={isDisenchanting}
       />
+
+      <CommanderDetailModal
+        commander={selectedCommander}
+        factionColor={selectedFactionColor}
+        onClose={() => setSelectedCommander(null)}
+      />
     </>
   );
 }
@@ -198,6 +226,7 @@ type BodyProps = {
   onRetry: () => void;
   mode: 'browse' | 'craft';
   dustAvailable: number;
+  listHeader?: React.ReactElement | null;
 };
 
 function CraftBody({
@@ -208,6 +237,7 @@ function CraftBody({
   onRetry,
   mode,
   dustAvailable,
+  listHeader = null,
 }: BodyProps) {
   const { cards, isLoading, error } = useCardLibrary();
 
@@ -241,6 +271,7 @@ function CraftBody({
         onTapCard={onTapCard}
         mode={mode}
         dustAvailable={dustAvailable}
+        ListHeaderComponent={listHeader}
       />
     </View>
   );

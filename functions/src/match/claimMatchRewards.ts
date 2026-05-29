@@ -109,6 +109,7 @@ export const claimMatchRewards = onCall<ClaimInput, Promise<ClaimMatchRewardsRes
               isCompleted: true,
               player_a_faction: session.player_a_faction,
               cards_lost: cardsLostForQuest,
+              mode: session.mode,
             },
           },
           db,

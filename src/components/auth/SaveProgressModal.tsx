@@ -36,7 +36,8 @@ type SaveProgressModalProps = {
 type ErrorState =
   | { kind: 'none' }
   | { kind: 'message'; text: string }
-  | { kind: 'email_in_use' };
+  | { kind: 'email_in_use' }
+  | { kind: 'google_in_use' };
 
 export function SaveProgressModal({
   visible,
@@ -44,7 +45,7 @@ export function SaveProgressModal({
   onUpgradeSuccess,
   trigger,
 }: SaveProgressModalProps) {
-  const { upgradeAnonymousAccount, signOut } = useAuth();
+  const { upgradeAnonymousAccount, upgradeAnonymousWithGoogle, signOut } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -87,6 +88,24 @@ export function SaveProgressModal({
     }
   };
 
+  const handleGoogleUpgrade = async () => {
+    setIsSubmitting(true);
+    setError({ kind: 'none' });
+    try {
+      const { cancelled } = await upgradeAnonymousWithGoogle();
+      if (cancelled) {
+        setIsSubmitting(false);
+        return;
+      }
+      resetState();
+      onUpgradeSuccess?.();
+      onClose();
+    } catch (err: unknown) {
+      setError(mapFirebaseError(err));
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSwitchToSignIn = async () => {
     setIsSubmitting(true);
     try {
@@ -99,6 +118,9 @@ export function SaveProgressModal({
       setIsSubmitting(false);
     }
   };
+
+  const credentialInUse =
+    error.kind === 'email_in_use' || error.kind === 'google_in_use';
 
   return (
     <Modal
@@ -170,21 +192,55 @@ export function SaveProgressModal({
                 </Pressable>
               </View>
             )}
+            {error.kind === 'google_in_use' && (
+              <View style={styles.errorBlock}>
+                <Text style={styles.errorText}>
+                  This Google account is already linked to another account. You
+                  can sign in with it instead — note that doing so will end this
+                  guest session and your guest progress will be lost.
+                </Text>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.pressed,
+                    isSubmitting && styles.disabledButton,
+                  ]}
+                  onPress={handleSwitchToSignIn}
+                  disabled={isSubmitting}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    Sign Out & Sign In
+                  </Text>
+                </Pressable>
+              </View>
+            )}
 
             <Pressable
               style={({ pressed }) => [
                 styles.primaryButton,
-                (isSubmitting || error.kind === 'email_in_use') && styles.disabledButton,
+                (isSubmitting || credentialInUse) && styles.disabledButton,
                 pressed && styles.pressed,
               ]}
               onPress={handleCreateAccount}
-              disabled={isSubmitting || error.kind === 'email_in_use'}
+              disabled={isSubmitting || credentialInUse}
             >
               {isSubmitting ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.primaryButtonText}>Create Account</Text>
               )}
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.googleButton,
+                (isSubmitting || credentialInUse) && styles.disabledButton,
+                pressed && styles.pressed,
+              ]}
+              onPress={handleGoogleUpgrade}
+              disabled={isSubmitting || credentialInUse}
+            >
+              <Text style={styles.googleButtonText}>Save with Google</Text>
             </Pressable>
 
             <Pressable
@@ -209,6 +265,8 @@ function mapFirebaseError(err: unknown): ErrorState {
   switch (code) {
     case 'auth/email-already-in-use':
       return { kind: 'email_in_use' };
+    case 'auth/credential-already-in-use':
+      return { kind: 'google_in_use' };
     case 'auth/weak-password':
       return {
         kind: 'message',
@@ -294,6 +352,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
+  },
+  googleButton: {
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  googleButtonText: {
+    color: '#1f1f1f',
+    fontSize: 16,
+    fontWeight: '600',
   },
   primaryButtonText: {
     color: '#fff',

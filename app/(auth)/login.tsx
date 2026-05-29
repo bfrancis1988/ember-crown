@@ -15,11 +15,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Eye, EyeOff, Play } from 'lucide-react-native';
+import { FirebaseError } from 'firebase/app';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Analytics } from '../../src/lib/analytics';
 
 export default function LoginScreen() {
-  const { signInWithEmail, signUpWithEmail, signInAsGuest } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInAsGuest, signInWithGoogle } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -68,6 +69,31 @@ export default function LoginScreen() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       Alert.alert('Could not start guest session', message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsSubmitting(true);
+    try {
+      const { cancelled, isNewUser } = await signInWithGoogle();
+      if (cancelled) return;
+      if (isNewUser) Analytics.signup('google');
+      router.replace('/home');
+    } catch (err: unknown) {
+      if (
+        err instanceof FirebaseError &&
+        err.code === 'auth/account-exists-with-different-credential'
+      ) {
+        Alert.alert(
+          'Account already exists',
+          'An account with this email already exists. Please sign in with your email and password instead.',
+        );
+        return;
+      }
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert('Google sign-in failed', message);
     } finally {
       setIsSubmitting(false);
     }
@@ -169,6 +195,16 @@ export default function LoginScreen() {
         disabled={isSubmitting}
       >
         <Text style={styles.buttonText}>Log In</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.googleButton, isSubmitting && styles.buttonDisabled]}
+        onPress={handleGoogleSignIn}
+        disabled={isSubmitting}
+        accessibilityRole="button"
+        accessibilityLabel="Continue with Google"
+      >
+        <Text style={styles.googleButtonText}>Continue with Google</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );
@@ -294,5 +330,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 1,
+  },
+  googleButton: {
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  googleButtonText: {
+    color: '#1f1f1f',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -16,6 +16,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../src/lib/firebase';
+import { recordError } from '../../src/lib/observability';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -34,11 +35,13 @@ export default function ForgotPasswordScreen() {
       await sendPasswordResetEmail(auth, trimmed);
       Alert.alert(
         'Reset link sent',
-        'Check your email for the reset link.',
+        "Check your email for the reset link. If you don't see it within a few minutes, check your spam folder.",
         [{ text: 'OK', onPress: () => router.back() }],
       );
-    } catch (err: any) {
-      Alert.alert('Error', err?.message ?? 'Could not send reset link.');
+    } catch (err: unknown) {
+      recordError(err, 'password_reset_send');
+      const message = err instanceof Error ? err.message : 'Could not send reset link.';
+      Alert.alert('Error', message);
     } finally {
       setIsSubmitting(false);
     }

@@ -21,6 +21,8 @@ type Props = {
   factionId: FactionId;
   selectedCommanderId: string | null;
   onSelectCommander: (commanderId: string) => void;
+  // Long-press a tile to open a read-only detail view (tap still selects).
+  onViewCommander?: (commander: CommanderEntry) => void;
 };
 
 function CommanderArtSquare({
@@ -51,6 +53,7 @@ export function CommanderPicker({
   factionId,
   selectedCommanderId,
   onSelectCommander,
+  onViewCommander,
 }: Props) {
   const [commanders, setCommanders] = useState<CommanderEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,6 +98,7 @@ export function CommanderPicker({
               <Pressable
                 key={c.commander_id}
                 onPress={() => onSelectCommander(c.commander_id)}
+                onLongPress={onViewCommander ? () => onViewCommander(c) : undefined}
                 style={[
                   styles.tile,
                   selected && {
@@ -115,6 +119,9 @@ export function CommanderPicker({
             );
           })}
         </View>
+      )}
+      {!loading && onViewCommander && commanders.length > 0 && (
+        <Text style={styles.hint}>Hold a commander to view details</Text>
       )}
     </View>
   );
@@ -159,5 +166,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  hint: {
+    color: '#666',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 6,
   },
 });

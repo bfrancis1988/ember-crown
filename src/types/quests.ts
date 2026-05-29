@@ -10,7 +10,8 @@ export type QuestTrackerKind =
   | 'counter'
   | 'max_value'
   | 'conditional_match'
-  | 'streak';
+  | 'streak'
+  | 'win_streak';
 
 export type QuestFilter = 'faction' | 'rarity' | null;
 
@@ -42,6 +43,7 @@ export type QuestProgress = {
   daily_counters: Record<string, number>;
   weekly_counters: Record<string, number>;
   weekly_streak_days: Record<string, boolean>;
+  current_win_streak: number;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

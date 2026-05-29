@@ -3,7 +3,7 @@
     "name": "ember-crown",
     "slug": "ember-crown",
     "scheme": "embercrown",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -12,7 +12,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.embercrown.app",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "buildNumber": "14",
+      "buildNumber": "15",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -22,7 +22,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.embercrown.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 18,
+      "versionCode": 19,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon-foreground.png",
         "backgroundColor": "#1a1a2e"
@@ -38,7 +38,11 @@
         {
           "ios": {
             "useFrameworks": "static",
-            "forceStaticLinking": ["RNFBApp", "RNFBAnalytics", "RNFBCrashlytics"]
+            "forceStaticLinking": [
+              "RNFBApp",
+              "RNFBAnalytics",
+              "RNFBCrashlytics"
+            ]
           }
         }
       ],
@@ -55,8 +59,15 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
           "resizeMode": "contain",
           "backgroundColor": "#0a0a0f"
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.903632353042-hv7jed3m5icii256q5snbsblrqett9h2"
         }
       ]
     ],

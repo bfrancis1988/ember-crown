@@ -42,3 +42,18 @@ export function setObservabilityUser(uid: string | null): void {
     console.warn('Crashlytics setUserId failed:', err);
   }
 }
+
+// Records a non-fatal error to Crashlytics (and always console.warns for dev
+// visibility). `context` is logged as a breadcrumb and prefixes the console
+// line, so otherwise-silent failures surface in production crash reports.
+export function recordError(error: unknown, context?: string): void {
+  console.warn(`recordError${context ? ` [${context}]` : ''}:`, error);
+  if (!isCrashlyticsLoaded()) return;
+  try {
+    const err = error instanceof Error ? error : new Error(String(error));
+    if (context) crashlytics().log(context);
+    crashlytics().recordError(err);
+  } catch (e) {
+    console.warn('Crashlytics recordError failed:', e);
+  }
+}
